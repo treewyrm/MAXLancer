@@ -1,0 +1,1 @@
+macros.run "MAXLancer" "ReloadScripts"

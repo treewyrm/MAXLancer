@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<materials>
+	<!-- Replace type when material name matches pattern (EXE\dacom.ini) -->
+	<replace pattern="^null$">NullMaterial</replace>
+	<replace pattern="^sea_anim.*$">PlanetWaterMaterial</replace>
+	<replace pattern="^anim_hud.*$">HUDAnimMaterial</replace>
+	<replace pattern="^o_glass$">HighGlassMaterial</replace>
+	<replace pattern="^bw_glass$">HighGlassMaterial</replace>
+	<replace pattern="^planet.*_glass$">GFGlassMaterial</replace>
+	<replace pattern="^r_glass$">HighGlassMaterial</replace>
+	<replace pattern="^l_glass$">HighGlassMaterial</replace>
+	<replace pattern="^k_glass$">HighGlassMaterial</replace>
+	<replace pattern="^b_glass$">HighGlassMaterial</replace>
+	<replace pattern="^cv_glass$">HighGlassMaterial</replace>
+	<replace pattern="^c_glass$">HighGlassMaterial</replace>
+	<replace pattern="^exclusion_.*">ExclusionZoneMaterial</replace>
+	<replace pattern="^ui_.*">HUDIconMaterial</replace>
+	<replace pattern="^n-texture.*$">NomadMaterialNoBendy</replace>
+	<replace pattern="^nomad.*$">NomadMaterialNoBendy</replace>
+	<replace pattern="^tlr_energy$">NebulaTwo</replace>
+	<replace pattern="^tlr_material$">NebulaTwo</replace>
+	<replace pattern="^detailmap_.*">BtDetailMapMaterial</replace>
+	<replace pattern="^alpha_mask.*2side">DcDtTwo</replace>
+	<replace pattern="^alpha_mask.*">DcDt</replace>
+	<!-- Rename type when material type matches source (EXE\dacom.ini) -->
+	<rename type="EcEtOcOt">DcDtOcOt</rename>
+	<rename type="DcDtEcEt">DcDtEt</rename>
+	<shader filename="SinglePassMaterial.fx">SinglePassMaterial</shader>
+	<shader filename="DetailMaterial.fx">DetailMaterial</shader>
+	<shader filename="Nebula.fx">NebulaMaterial</shader>
+	<shader filename="NomadMaterial.fx">NomadMaterial</shader>
+	<shader filename="GlassMaterial.fx">GlassMaterial</shader>
+</materials>
