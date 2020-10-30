@@ -10,18 +10,20 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 	local lastSize
 
 	parameters RigidPartParameters rollout:PartRollout (
-		compound   type:#boolean    animatable:false ui:compoundCheckbox   default:false
-		multilevel type:#boolean    animatable:false ui:multilevelCheckbox default:false
-		zerocenter type:#boolean    animatable:false ui:zerocenterCheckbox default:false
-		size       type:#worldUnits animatable:false ui:sizeSpinner        default:5.0
+		compound     type:#boolean    animatable:false ui:compoundCheckbox     default:false
+		multilevel   type:#boolean    animatable:false ui:multilevelCheckbox   default:false
+		zerocenter   type:#boolean    animatable:false ui:zerocenterCheckbox   default:false
+		size         type:#worldUnits animatable:false ui:sizeSpinner          default:5.0
+		inertia      type:#worldUnits animatable:false ui:inertiaSpinner       default:1.0
 	)
 
 	rollout PartRollout "Part Parameters" (
 		spinner sizeSpinner "Dummy Size" type:#float range:[0, 1000, 2]
+		spinner inertiaSpinner "Hitbox Inertia" type:#float range:[0, 100, 1]
 
-		checkbox compoundCheckbox "Force Compound" tooltip:"Exporting this part will force output to be compound model (.cmp)."
-		checkbox multilevelCheckbox "Force MultiLevel" tooltip:"Force single LOD into MultiLevel with explicit LOD ranges. Does not affect parts with multiple LODs."
-		checkbox zerocenterCheckbox "Force LOD Center Zero" tooltip:"Force LOD bounding sphere center to zero. Enable for parts in starspheres."
+		checkbox compoundCheckbox     "Force Compound"        tooltip:"Exporting this part will force output to be compound model (.cmp)."
+		checkbox multilevelCheckbox   "Force MultiLevel"      tooltip:"Force single LOD into MultiLevel with explicit LOD ranges. Does not affect parts with multiple LODs."
+		checkbox zerocenterCheckbox   "Force LOD Center Zero" tooltip:"Force LOD bounding sphere center to zero. Enable for parts in starspheres."
 	)
 
 	on getDisplayMesh do (

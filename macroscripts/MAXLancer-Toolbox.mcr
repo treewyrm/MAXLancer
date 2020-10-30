@@ -96,7 +96,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		button settingsButton "Settings"       width:128 height:24 align:#center
 		button logButton      "Message Log"    width:128 height:24 align:#center
 		button reloadButton   "Reload Scripts" width:128 height:24 align:#center
-		label versionLabel    "Version 0.4"
+		label versionLabel    ""               width:128 align:#center
 
 		on settingsButton pressed do CreateDialog SettingsRollout modal:true
 
@@ -112,6 +112,10 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		on RigidModelsRollout close do (
 			toolboxOpen = false
 			updateToolbarButtons()
+		)
+		
+		on ToolboxRollout open do (
+			versionLabel.text = "Version " + MAXLancer.version as string
 		)
 	)
 

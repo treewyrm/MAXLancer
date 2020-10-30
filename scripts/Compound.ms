@@ -540,7 +540,7 @@ fn GetCompoundJoint target approximation:10 root:false = (
 		LooseJointController:   translate (controller.rotation.value as matrix3) controller.position.value
 		AxisJointController:    controller.origin
 		FixedJointController:   controller.origin
-		default:                target.transform
+		default:                in coordsys parent target.transform
 	)
 	
 	local scalepart = joint.transform.scalepart

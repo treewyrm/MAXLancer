@@ -394,9 +394,11 @@ struct SurfacePart (
 		local element     -- Editable_mesh temporarily created from element faces
 		local hullID      -- Hull ID
 		local elementConvex
-		local minimum
-		local maximum
 		local position
+
+		-- Kept commented out as a reminder part extents min/max is never set correctly otherwise
+		-- local minimum
+		-- local maximum
 
 		for item in SurfaceLibrary.GetPartSurfaces target &hardpoints &center do (
 			hullID = MAXLancer.Hash item.name
@@ -430,9 +432,10 @@ struct SurfacePart (
 				if classOf progress == MAXScriptFunction then progress (getNumFaces item.hullMesh)
 
 			) else for faces in GetMeshElements item do ( -- Break mesh into elements and process each as individual hull
-				if mod faces.numberSet 2 != 0 then throw ("Hull subgroup in " + item.name + " has uneven number of faces.")
-
 				MAXLancer.WriteLog ("Hull " + item.name + " (" + formatID hullID + "): " + formattedPrint faces.numberSet format:"u" + " faces")
+				
+				-- Convex hulls can have only even number of faces
+				if mod faces.numberSet 2 != 0 then throw ("Hull subgroup in " + item.name + " has uneven number of faces.")
 
 				-- Create temporary mesh from element faces
 				element = mesh name:item.name mesh:(meshOp.detachFaces item faces delete:false asMesh:true) transform:item.transform hidden:true
@@ -577,7 +580,7 @@ struct SurfacePart (
 			radius = maxRadius
 			scaler = minRadius / maxRadius
 
-			if inertia == [0, 0, 0] then inertia = [0, 0, radius] * rotateYPRMatrix (random -360.0 360.0) (random -360.0 360.0) (random -360.0 360.0)
+			if inertia == [0, 0, 0] then inertia = [0, 0, radius * target.inertia] * rotateYPRMatrix (random -360.0 360.0) (random -360.0 360.0) (random -360.0 360.0)
 
 			this.center = center
 		)

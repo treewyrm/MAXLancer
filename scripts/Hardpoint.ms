@@ -98,7 +98,7 @@ plugin Helper HardpointHelper classID:#(0x4C58414D, 0x64726168) name:"Hardpoint"
 	
 	parameters HardpointParameters rollout:HardpointRollout (
 		type        type:#integer    animatable:false default:1 ui:typeList
-		axis        type:#point3     animatable:false default:[1, 0, 0]
+		axis        type:#point3     animatable:false default:[0, 0, 1]
 		limitMin    type:#float      animatable:false default:0 ui:limitMinSpinner
 		limitMax    type:#float      animatable:false default:0 ui:limitMaxSpinner
 		baseSize    type:#worldUnits animatable:false default:1 ui:baseSizeSpinner

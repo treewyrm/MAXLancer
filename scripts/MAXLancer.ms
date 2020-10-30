@@ -161,8 +161,9 @@ global MAXLancer = (
 	)
 
 	struct MAXLancerTools (
-		debug  = true,
-		config = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
+		version = 0.5,
+		debug   = true,
+		config  = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
 		shaders,      -- ShaderLibrary
 
 		FLCRC,
