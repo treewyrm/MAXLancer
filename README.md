@@ -11,13 +11,13 @@ MaxScript toolset for 3Ds MAX to import and export Freelancer 3db/cmp 3D models.
 
 ## Prerequisites
 - Autodesk 3ds Max 2017 or above (tested with 3ds Max 2018)
-- Nvidia Texture Tools
+- [Nvidia Texture Tools](https://github.com/castano/nvidia-texture-tools)
 - Microsoft Freelancer
 
 ## Installation
 By default installer will attempt to find most recent supported version of 3ds Max installed in the system.
 
-After installation is complete you'll need to open (or re-open if it was opened during installation) 3ds Max to finish these steps:
+After installation is complete follow these steps to finish the process:
 
 ### Create toolbar
 - Open *Customize* → *Customize User Interface*.
@@ -29,13 +29,14 @@ After installation is complete you'll need to open (or re-open if it was opened 
 ### Set external paths
 - In MAXLancer sidebar press *Settings* button.
 - Specify paths:
-  - Freelancer (typically C:\Program Files\Microsoft Games\Freelancer).
+  - Freelancer (typically _C:\Program Files\Microsoft Games\Freelancer_).
   - Nvidia Texture Tools.
-  - Textures (typically C:\Users\[User]\Documents\3dsMax\sceneassets\images\MAXLancer).
-  - Shaders (typically C:\Program Files\Autodesk\3ds Max 2018\maps\fx\MAXLancer).
+  - Textures (typically _C:\Users\[User]\Documents\3dsMax\sceneassets\images\MAXLancer_).
+  - Shaders (typically _C:\Program Files\Autodesk\3ds Max 2018\maps\fx\MAXLancer_).
 - Press OK button.
 
 Path to Nvidia Texture Tools should point to binary folder (bin32 or bin64) containing executables.
+If you have graphical issues with exported textures try using previous version of Texture Tools (2.1.1 for example).
 
 ### Disable gamma/LUT
 - Open *Customize* → *Preferences* → *Gamma and LUT*.
