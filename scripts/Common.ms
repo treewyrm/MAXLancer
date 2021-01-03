@@ -596,6 +596,17 @@ fn GetNetColorMan type = (
 	(dotNetClass "System.Drawing.Color").fromARGB (int result.x) (int result.y) (int result.z)
 )
 
+-- Get random color between from derived HSL components for a more natural shift 
+fn GetRandomColorHSL a b = (
+	local result = black
+
+	result.v = random a.v b.v
+	result.s = random a.s b.s
+	result.h = random a.h b.h
+
+	result -- Return Color
+)
+
 -- Create new or get existing scene layer by name
 fn GetLayer target hidden:false = (
 	local result = LayerManager.getLayerFromName target
@@ -604,6 +615,7 @@ fn GetLayer target hidden:false = (
 	result -- Return LayerProperties mixin
 )
 
+-- Add target scene node to layer (auto-create layer if absent)
 fn AddToLayer name target hidden:false = (
 	if not isValidNode target then throw "Invalid node target object."
 
@@ -613,6 +625,9 @@ fn AddToLayer name target hidden:false = (
 	layer.addNode target
 	OK
 )
+
+-- Get array of Point2 for texture grid atlas offsets excluding specified positions 
+fn GetAtlasOffsets size exclusions:#{} = for i = 0 to size * size - 1 where findItem exclusions (i + 1) == 0 collect [mod i size, i / size, 0] / size
 
 -- Calculate bounding box from array of Point3
 fn CalculateBoundingBox points &minimum &maximum = (
@@ -685,3 +700,53 @@ fn MergeSpheres centerA radiusA centerB radiusB &center &radius = (
 
 	OK
 )
+
+-- Get random point on sphere (uniform distribution)
+fn GetSphereRandomPoint = (
+	local t = radToDeg (2 * pi * random 0.0 1.0)
+	local p = radToDeg (acos (random -1.0 1.0))
+		
+	[sin(p) * cos(t), sin(p) * sin(t), cos(p)] -- Return Point3
+)
+	
+-- Collapse vectors to points on unit sphere. Input vector components have to be in [-1, 1] range!
+fn SpherifyVector v = (
+	local dv = v * v
+			
+	local x = v.x * sqrt (1 - dv.y * 0.5 - dv.z * 0.5 + dv.y * dv.z / 3)
+	local y = v.y * sqrt (1 - dv.z * 0.5 - dv.x * 0.5 + dv.z * dv.x / 3)
+	local z = v.z * sqrt (1 - dv.x * 0.5 - dv.y * 0.5 + dv.x * dv.y / 3)
+			
+	[x, y, z] -- Return Point3
+)
+
+-- Generate balls within unit sphere with basic fractional collision detection for better spread. Result is not guaranteed to have requested number of balls
+fn GetSphereBalls count sizeMin:0.1 sizeMax:1.0 fraction:1.0 tryLimit:100 = (
+		
+	local result   = #()   -- Array of Point4 (xyz position, w radius)
+	local failed   = false -- Generator was unable to find a spot to put another point in due to boundary checks
+	local collided = false -- Point sphere collided with another
+	local tries    = 0     -- Try counter
+	local position         -- Current position
+	local radius           -- Current radius
+	
+	-- Generate request number of points unless try limit exceeded
+	for i = 1 to count while not failed do (
+		tries = 0 -- Reset counter for next ball
+	
+		do (
+			collided = false
+			position = GetSphereRandomPoint()
+			radius   = random sizeMin sizeMax
+			
+			-- Find collision
+			for b in result while not collided do collided = distance position (b as Point3) < (radius + b.w) * fraction
+		) while not (failed = (tries += 1) >= tryLimit) and collided -- Keep trying until no collision occurs or attempt limit exceeded
+		
+		-- Append Point4 to array
+		if not failed and not collided then append result [position.x, position.y, position.z, radius]
+	)
+	
+	result -- Return array of Point4
+)
+

@@ -2,6 +2,9 @@
  * MAXLancer toolkit - Copyright (c) Yuriy Alexeev <treewyrm@gmail.com>
  * 
  * Transform controller for compound parts
+ *
+ * Cyl (cylindric) exists in code but doesn't seem to work, potentially requires undetermined flags
+ * in animation header.
  */
 
 -- Fixed joint transform is just that, has no animation support (Fix).
@@ -41,6 +44,7 @@ plugin TransformController AxisJointController name:"Axis Joint" classID:#(0x4C5
 		turnMin type:#float animatable:false ui:turnMinSpinner
 		turnMax type:#float animatable:false ui:turnMaxSpinner
 
+		-- Offset is applicable only to Rev and Cyl (?)
 		offset type:#point3 animatable:false default:[0, 0, 0]
 
 		on axis set result do (
@@ -142,16 +146,22 @@ plugin TransformController AxisJointController name:"Axis Joint" classID:#(0x4C5
 		)
 	)
 
+	-- Get turn value constrained to min/max values
+	fn getTurn = amin (amax turn turnMin) turnMax
+
+	-- Get slide value constrained to min/max values
+	fn getSlide = amin (amax slide slideMin) slideMax
+
 	on getValue do (
 		result = case type of (
-			1: preTranslate (translate ((origin.rotationpart * (quat turn -axis)) as matrix3) (origin.translationpart)) -offset
-			2: translate (origin.rotationpart as matrix3) (origin.translationpart + slide * axis)
-			3: preTranslate (translate ((origin.rotationpart * (quat turn -axis)) as matrix3) (origin.translationpart + slide * axis)) -offset
+			1: preTranslate (translate ((origin.rotationpart * (quat (getTurn()) -axis)) as matrix3) (origin.translationpart)) -offset
+			2: translate (origin.rotationpart as matrix3) (origin.translationpart + (getSlide()) * axis)
+			3: preTranslate (translate ((origin.rotationpart * (quat (getTurn()) -axis)) as matrix3) (origin.translationpart + (getSlide()) * axis)) -offset
 		)
 	)
 
 	on setValue absolute relative commit do origin = inverse (result * inverse origin) * absolute
-
+ 
 	on create do (
 		isLeaf = false
 		isKeyable = false

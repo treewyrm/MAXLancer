@@ -19,7 +19,7 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 
 	rollout PartRollout "Part Parameters" (
 		spinner sizeSpinner "Dummy Size" type:#float range:[0, 1000, 2]
-		spinner inertiaSpinner "Hitbox Inertia" type:#float range:[0, 100, 1]
+		spinner inertiaSpinner "Hitbox Inertia?" type:#float range:[0, 100, 1]
 
 		checkbox compoundCheckbox     "Force Compound"        tooltip:"Exporting this part will force output to be compound model (.cmp)."
 		checkbox multilevelCheckbox   "Force MultiLevel"      tooltip:"Force single LOD into MultiLevel with explicit LOD ranges. Does not affect parts with multiple LODs."
@@ -157,20 +157,21 @@ struct RigidPart (
 		 * Passing levels/ranges/wireframe directly seem to cause malfunction in
 		 * MaxScript here (Bad structure member thunk member). There's something
 		 * weird going on with passing struct parameters by reference into
-		 * functions in struct instances.
+		 * functions in struct instances. The workaround is to define them locally,
+		 * pass into function and only then set into properties.
 		 */
 
-		local levels
-		local ranges
-		local wireframe
+		local partLevels     -- Array of Editable_mesh
+		local partRanges     -- Array of Float
+		local partWireframe  -- Spline or Editable_mesh
 
 		if hardpoints then ParseHardpoints target &this.hardpoints
-		if classOf meshLib == VMeshLibrary then meshLib.ParseLevels target filename &levels &ranges &wireframe wireframes:wireframes materialLib:materialLib textureLib:textureLib progress:progress
+		if classOf meshLib == VMeshLibrary then meshLib.ParseLevels target filename &partLevels &partRanges &partWireframe wireframes:wireframes materialLib:materialLib textureLib:textureLib progress:progress
 
-		this.levels    = levels
-		this.ranges    = ranges
-		this.wireframe = wireframe
-		
+		levels    = partLevels
+		ranges    = partRanges
+		wireframe = partWireframe
+
 		OK
 	),
 

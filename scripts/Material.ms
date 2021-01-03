@@ -48,7 +48,7 @@ fn ReadTextureMap reader prefix &map = (
 fn WriteTextureMap writer prefix map = (
 	if classOf map == FLMaterialMap then (
 		writer.WriteFileString (prefix + "_name") map.filename
-		if map.flags > 0 then writer.WriteFileInteger (prefix + "_flags") map.flags #unsigned
+		if stricmp prefix "Nt" != 0 and map.flags > 0 then writer.WriteFileInteger (prefix + "_flags") map.flags #unsigned
 	)
 
 	OK

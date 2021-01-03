@@ -29,7 +29,7 @@ plugin Helper HardpointHelper classID:#(0x4C58414D, 0x64726168) name:"Hardpoint"
 		OK
 	)
 
-	fn GenerateDisplayMesh baseSize arrowSize limitFrom limitTo = (
+	fn GenerateDisplayMesh baseSize arrowSize limitFrom limitTo upAxis = (
 
 		-- If base is zero size shift arrow center to zero as well
 		local arrowOffset = if baseSize > 0 then baseSize + arrowSize else 0
@@ -58,15 +58,24 @@ plugin Helper HardpointHelper classID:#(0x4C58414D, 0x64726168) name:"Hardpoint"
 		local faceCount   = 0
 		local theta       = limitFrom
 		local thetaStep   = limitRange / (vertexCount * 0.5)
-		
+
+		local arcLift     = [0, 0, arrowOffset]
+		local sideAxis    = normalize (cross y_axis upAxis)
+		local forwardAxis = normalize (cross upAxis sideAxis)
+		local axisTM      = Matrix3 sideAxis forwardAxis upAxis [0, 0, 0]
+
 		-- Adds vertices
 		for v = 0 to vertexCount by 2 do (
 			local x = sin theta
 			local y = cos theta
-			
-			append vertices [innerRadius * x, innerRadius * y, arrowOffset]
-			append vertices [outerRadius * x, outerRadius * y, arrowOffset]
-			
+
+			append vertices ([innerRadius * x, innerRadius * y, 0] * axisTM + arcLift)
+			append vertices ([outerRadius * x, outerRadius * y, 0] * axisTM + arcLift)
+
+			-- local r = quat theta axis
+			-- append vertices (([0, innerRadius, 0] * r) + [0, 0, arrowOffset])
+			-- append vertices (([0, outerRadius, 0] * r) + [0, 0, arrowOffset])
+
 			if v < vertexCount then (
 				append faces [startVertex + v + 1, startVertex + v + 3, startVertex + v + 2]
 				append faces [startVertex + v + 4, startVertex + v + 2, startVertex + v + 3]
@@ -80,8 +89,11 @@ plugin Helper HardpointHelper classID:#(0x4C58414D, 0x64726168) name:"Hardpoint"
 		if faceCount > 2 then (
 			local notchRadius = outerRadius + width
 
-			append vertices [notchRadius * sin limitFrom, notchRadius * cos limitFrom, arrowOffset]
-			append vertices [notchRadius * sin limitTo, notchRadius * cos limitTo, arrowOffset]
+			append vertices ([notchRadius * sin limitFrom, notchRadius * cos limitFrom, 0] * axisTM + arcLift)
+			append vertices ([notchRadius * sin limitTo, notchRadius * cos limitTo, 0] * axisTM + arcLift)
+
+			-- append vertices (([0, notchRadius, 0] * quat limitFrom axis) + [0, 0, arrowOffset])
+			-- append vertices (([0, notchRadius, 0] * quat limitTo axis) + [0, 0, arrowOffset])
 
 			append faces [startVertex + 2, startVertex + 2, startVertex + vertexCount + 3]
 			append faces [startVertex + vertexCount + 2, startVertex + vertexCount + 4, startVertex + vertexCount + 2]
@@ -150,7 +162,10 @@ plugin Helper HardpointHelper classID:#(0x4C58414D, 0x64726168) name:"Hardpoint"
 		on axis_YSpinner changed result do axis.y = result
 		on axis_ZSpinner changed result do axis.z = result
 
-		on axisNormalizeButton pressed do axis = normalize axis
+		on axisNormalizeButton pressed do (
+			axis = normalize axis
+			displayUpdated = false
+		)
 
 		on HardpointRollout open do (
 			IsOpenRollout = true
@@ -165,7 +180,7 @@ plugin Helper HardpointHelper classID:#(0x4C58414D, 0x64726168) name:"Hardpoint"
 
 	on getDisplayMesh do (
 		if not hullUpdated then GenerateHullMesh hullShape hullSize
-		if not displayUpdated then GenerateDisplayMesh baseSize arrowSize limitMin limitMax
+		if not displayUpdated then GenerateDisplayMesh baseSize arrowSize limitMin limitMax axis
 
 		if hullShape == 1 then displayMesh else hullMesh
 	)
@@ -364,8 +379,10 @@ fn WriteHardpointType writer type hardpoints = (
 
 	if hardpoints.count > 0 then (
 		if not writer.OpenFolder type then throw ("Error writing " + type)
-		
+
 		for hardpoint in hardpoints do (
+			if hardpoint.transform.determinantsign < 0 then throw ("Hardpoint " + hardpoint.name + " transform has negative determinant")
+
 			writer.OpenFolder hardpoint.name
 			hardpoint.WriteUTF writer
 			writer.CloseFolder()

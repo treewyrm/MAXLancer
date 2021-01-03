@@ -239,6 +239,8 @@ fn WriteConstraintsType writer constraints archetype filename = (
 		if not writer.OpenFile filename then throw ("Unable to open file " + filename)
 
 		for item in items do (
+			if item.joint.transform.determinantsign < 0 then throw ("Part " + item.child.name + " joint transform has negative determinant")
+
 			MAXLancer.WriteLog ("Writing constraint: " + item.parent.name + " to " + item.child.name)
 
 			WriteCharsFixed writer.data item.parent.name 64

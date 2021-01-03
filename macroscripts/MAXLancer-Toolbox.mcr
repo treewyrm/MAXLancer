@@ -343,6 +343,11 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		spinner baseSizeSpinner "Base Size:"   range:[0,100,1] type:#float
 		spinner arrowSizeSpinner "Arrow Size:" range:[0,100,1] type:#float
 		button applyButton "Apply" width:88 height:24 align:#center
+
+		group "Mirror Hardpoints" (
+			radiobuttons mirrorAxis "Axis:" labels:#("X", "Y", "Z") columns:3 default:1
+			button mirrorButton "Mirror" width:88 height:24 align:#center tooltip:"Mirrors hardpoints about root of model (or scene in leu of root) at specified axis with matrix correction"
+		)
 		
 		group "Connect Hardpoints" (
 			button alignButton "Align"   width:76 height:24 across:2 align:#left tooltip:"Aligns source object hierarchy of source hardpoint to target hardpoint" across:2
@@ -350,6 +355,31 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 
 		button replaceButton "Replace Selection" width:128 height:24 align:#center
+
+		on mirrorButton pressed do for source in selection where classOf source == MAXLancer.HardpointHelper do (
+			local root   = MAXLancer.GetRootFromHardpoint source
+			local target = copy source -- Create a copy of helper node
+			local matrix = if isValidNode root then root.transform else Matrix3 1
+			
+			local scaler = case mirrorAxis.state of (
+				1: [-1, 1, 1]
+				2: [1, -1, 1]
+				3: [1, 1, -1]
+			)
+			
+			target.transform = target.transform * inverse matrix * scaleMatrix scaler * matrix
+			
+			in coordsys local (
+				scale target [-1, -1, -1]
+				rotate target (quat 180 x_axis)
+			)
+			
+			-- Lastly flip limits around
+			local limits = [source.limitMin, source.limitMax]
+			
+			target.limitMin = -limits.y
+			target.limitMax = -limits.x
+		)
 
 		on applyButton pressed do MAXLancer.SetHardpointSize selection baseSizeSpinner.value arrowSizeSpinner.value
 

@@ -161,7 +161,7 @@ global MAXLancer = (
 	)
 
 	struct MAXLancerTools (
-		version = 0.5,
+		version = 0.6,
 		debug   = true,
 		config  = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
 		shaders,      -- ShaderLibrary
@@ -181,6 +181,12 @@ global MAXLancer = (
 		GetMeshMaterials,
 		GetCompoundJoint,
 		FindHardpoint,
+
+		GetRandomColorHSL,
+		GetAtlasOffsets,
+		GetSphereRandomPoint,
+		GetSphereBalls,
+		SpherifyVector,
 
 		UTFEntry,
 		UTFHeader,
@@ -336,10 +342,8 @@ global MAXLancer = (
 			if child != undefined then
 				while child.parent != undefined and classOf child.parent == classOf child do child = child.parent
 
-			child -- Return HardpointHelper
+			child -- Return Node
 		),
-
-		
 
 		-- Attaches or aligns source model to target hardpoint by source hardpoint
 		fn AttachHardpoints sourceHardpoint targetHardpoint attach:true = (
@@ -438,11 +442,11 @@ global MAXLancer = (
 
 		on create do (
 			if heapSize < 268435456 then heapSize = 268435456
+
 			WriteLog ("Heap: " + formattedPrint heapFree format:"u" + " of " + formattedPrint heapSize format:"u")
+			WriteLog ("Config path:        " + config.filename)
 
-			WriteLog ("Config path: " + config.filename)
-
-			exporterVersion  = config.LoadProperty "MAXLancer" "exporterVersion" default:"MAXLancer Tools"
+			exporterVersion  = config.LoadProperty "MAXLancer" "exporterVersion" default:("MAXLancer Tools " + version as string)
 			temporaryPath    = config.LoadProperty "MAXLancer" "temporaryPath" default:(pathConfig.appendPath (GetDir #temp) "MAXLancer")
 			texturesPath     = config.LoadProperty "MAXLancer" "texturesPath" default:(pathConfig.appendPath (GetDir #image) "MAXLancer")
 			textureToolsPath = config.LoadProperty "MAXLancer" "textureToolsPath" default:("C:\\NVTT\\")
@@ -452,11 +456,11 @@ global MAXLancer = (
 			if not doesFileExist textureToolsPath then messageBox "MAXLancer Texture Tools path is invalid. Please set correct path in Settings."
 			if not doesFileExist shadersPath then messageBox "MAXLancer Shaders path is invalid. Please set correct path in Settings."
 			
-			WriteLog ("Temporary path: " + temporaryPath)
-			WriteLog ("Textures path: " + texturesPath)
+			WriteLog ("Temporary path:     " + temporaryPath)
+			WriteLog ("Textures path:      " + texturesPath)
 			WriteLog ("Texture tools path: " + textureToolsPath)
-			WriteLog ("Shaders path: " + shadersPath)
-			WriteLog ("Freelancer path: " + freelancerPath)
+			WriteLog ("Shaders path:       " + shadersPath)
+			WriteLog ("Freelancer path:    " + freelancerPath)
 
 			convexGenerator = config.LoadProperty "MAXLancer" "convexGenerator" default:1    type:#number
 			partSize        = config.LoadProperty "MAXLancer" "partSize"        default:0.25 type:#number
@@ -485,6 +489,11 @@ global MAXLancer = (
 		GetMeshElements:            GetMeshElements            \
 		GetMeshMaterials:           GetMeshMaterials           \
 		GetCompoundJoint:           GetCompoundJoint           \
+		GetRandomColorHSL:          GetRandomColorHSL          \
+		GetAtlasOffsets:            GetAtlasOffsets            \
+		GetSphereRandomPoint:       GetSphereRandomPoint       \
+		GetSphereBalls:             GetSphereBalls             \
+		SpherifyVector:             SpherifyVector             \
 		FindHardpoint:              FindHardpoint              \
 		UTFEntry:                   UTFEntry                   \
 		UTFHeader:                  UTFHeader                  \

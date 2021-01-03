@@ -30,7 +30,7 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 		Ok
 	)
 	
-	rollout StarscapePainterRollout "Starscape Painter" width:208 height:416 (
+	rollout StarscapePainterRollout "Starscape Painter" width:208 height:432 (
 		local brushGridDivisor -- atlasSizeButtons.state
 		local brushGridOffset  -- Point3 UV map offset
 		local brushColor       -- random colorPrimaryPicker.color colorSecondaryPicker.color
@@ -62,7 +62,7 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 		button newLayerButton "New Layer" pos:[104,240] width:88 height:24 align:#left
 		button resetViewportButton "Reset Viewport" pos:[32,272] width:144 height:24 align:#left
 			
-		groupBox generatorGroupBox "Random Generator" pos:[8,312] width:192 height:96 align:#left
+		groupBox generatorGroupBox "Random Generator" pos:[8,312] width:192 height:112 align:#left
 
 		label countLabel "Count" pos:[16,328] width:88 height:16 align:#left
 		spinner countSpinner "" pos:[104,328] width:88 height:16 range:[1,1000,40] type:#integer align:#left
@@ -70,7 +70,10 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 		label sizeVarianceLabel "Size Variance" pos:[16,348] width:88 height:16 align:#left	
 		spinner sizeVarianceSpinner "" pos:[104,348] width:88 height:16 range:[0, 1, 0] type:#float align:#left
 
-		button generateButton "Generate" pos:[32,376] width:144 height:24 align:#left
+		label distanceIncrementLabel "Distance Add" pos:[16,368] width:88 height:16 align:#left	
+		spinner distanceIncrementSpinner "" pos:[104,368] width:88 height:16 range:[0, 1000, 0] type:#float align:#left
+
+		button generateButton "Generate" pos:[32,392] width:144 height:24 align:#left
 
 		on newLayerButton pressed do layer = undefined
 		
@@ -91,7 +94,15 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 		fn RollAngle = brushAngle = random 0 360
 
 		-- Generate next random color
-		fn RollColor = brushColor = random colorPrimaryPicker.color colorSecondaryPicker.color
+		fn RollColor = brushColor = (
+			local result = black
+
+			result.v = random colorPrimaryPicker.color.v colorSecondaryPicker.color.v
+			result.s = random colorPrimaryPicker.color.s colorSecondaryPicker.color.s
+			result.h = random colorPrimaryPicker.color.h colorSecondaryPicker.color.h
+
+			result -- Return Color
+		)
 		
 		-- Generate next random UV offset
 		fn RollOffset = (
@@ -125,7 +136,7 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 			)
 		)
 		
-		fn MakeBrush size:sizeSlider.value = (
+		fn MakeBrush size:sizeSlider.value multiplier:distanceSpinner.value = (
 			size *= 2
 			
 			local prefab = (createInstance Plane length:size width:size lengthSegs:segmentsSpinner.value widthSegs:segmentsSpinner.value).mesh
@@ -134,7 +145,7 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 			if curveCheckbox.checked and segmentsSpinner.value > 1 then
 				for v = 1 to prefab.verts.count do prefab.verts[v].pos = SpherifyVector (prefab.verts[v].pos + [0, 0, 1]) + [0, 0, -1]
 			
-			scale prefab ([1, 1, 1] * distanceSpinner.value)
+			scale prefab ([1, 1, 1] * multiplier)
 			
 			if brushAngle == undefined then RollAngle()
 			
@@ -241,6 +252,7 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 			
 			local sizeMin = sizeSlider.value - sizeVarianceSpinner.value
 			local sizeMax = sizeSlider.value + sizeVarianceSpinner.value
+			local dist = distanceSpinner.value
 
 			if sizeMin < sizeSlider.range.x then sizeMin = sizeSlider.range.x
 			if sizeMax > sizeSlider.range.y then sizeMax = sizeSlider.range.y
@@ -249,16 +261,18 @@ macroscript StarscapePainter category:"MAXLancer" tooltip:"Starscape Painter" bu
 				RollAngle()
 				RollOffset()
 				RollColor()
-				MakeBrush size:(random sizeMin sizeMax)
+				MakeBrush size:(random sizeMin sizeMax) multiplier:dist
 				
 				-- Set random rotation
 				rotate brush (random (eulerAngles 0 0 0) (eulerAngles 360 360 360))
 					
 				-- Push away by radius
-				in coordsys local move brush [0, 0, distanceSpinner.value]
+				in coordsys local move brush [0, 0, dist]
 				
 				-- Assign to layer or attach to existing layer
 				if not isValidNode layer then layer = brush else meshOp.attach layer brush attachMat:#MatToID
+
+				dist += distanceIncrementSpinner.value
 			)
 			
 			OK

@@ -1,6 +1,6 @@
 [Setup]
 AppName=MAXLancer
-AppVersion=0.4
+AppVersion=0.6
 Uninstallable=no
 WizardStyle=modern
 DefaultDirName={code:get3DsMaxDir}
@@ -9,7 +9,7 @@ OutputDir=.
 OutputBaseFilename=maxlancer-setup
 SetupIconFile=maxlancer.ico
 DisableWelcomePage=no
-; WizardImageFile=side.bmp
+WizardImageFile=side_large.bmp
 WizardSmallImageFile=header_small.bmp
 InfoBeforeFile=intro.rtf
 
