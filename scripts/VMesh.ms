@@ -364,7 +364,7 @@ struct VMeshData (
 		if classOf target != Editable_mesh then throw "Invalid Editable_mesh object"
 		if (custAttributes.get target VMeshAttributes) == undefined then throw "Editable_mesh does not have VMeshAttributes"
 
-		local meshRef = VMeshRef meshID:(MAXLancer.hash filename) groupStart:groups.count indexStart:indices.count vertexStart:vertexCount radius:1.0 minimum:[3.4e38, 3.4e38, 3.4e38] maximum:[-3.4e38, -3.4e38, -3.4e38]
+		local meshRef = VMeshRef meshID:(MAXLancer.hash filename) groupStart:groups.count indexStart:indices.count vertexStart:vertexCount radius:0.0 minimum:[3.4e38, 3.4e38, 3.4e38] maximum:[-3.4e38, -3.4e38, -3.4e38]
 
 		-- Specify center
 		meshRef.center = if classOf target.parent == RigidPartHelper and target.parent.zerocenter then [0, 0, 0] else in coordsys target.parent target.pivot
