@@ -24,6 +24,7 @@ Source: "..\icons\*"; DestDir:"{app}\UI_ln\Icons\Light\MAXLancer"
 [Code]
 function get3DsMaxDir(Dir: String): String; // Last 3Ds Max 32-bit version was 2013 therefore supported versions are only 64-bit
 begin
+  if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\23.0', 'Installdir', result)) then // 2021
   if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\22.0', 'Installdir', result)) then // 2020
   if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\21.0', 'Installdir', result)) then // 2019
   if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\20.0', 'Installdir', result)) then // 2018
