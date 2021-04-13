@@ -1,6 +1,6 @@
 [Setup]
 AppName=MAXLancer
-AppVersion=0.6
+AppVersion=0.7
 Uninstallable=no
 WizardStyle=modern
 DefaultDirName={code:get3DsMaxDir}
