@@ -10,20 +10,22 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 	local lastSize
 
 	parameters RigidPartParameters rollout:PartRollout (
-		compound     type:#boolean    animatable:false ui:compoundCheckbox     default:false
-		multilevel   type:#boolean    animatable:false ui:multilevelCheckbox   default:false
-		zerocenter   type:#boolean    animatable:false ui:zerocenterCheckbox   default:false
-		size         type:#worldUnits animatable:false ui:sizeSpinner          default:5.0
-		inertia      type:#worldUnits animatable:false ui:inertiaSpinner       default:1.0
+		compound   type:#boolean    animatable:false ui:compoundCheckbox   default:false
+		multilevel type:#boolean    animatable:false ui:multilevelCheckbox default:false
+		zerocenter type:#boolean    animatable:false ui:zerocenterCheckbox default:false
+		wireSnap   type:#float      animatable:false ui:wireSnapSpinner    default:0.025
+		size       type:#worldUnits animatable:false ui:sizeSpinner        default:5.0
+		inertia    type:#worldUnits animatable:false ui:inertiaSpinner     default:1.0
 	)
 
 	rollout PartRollout "Part Parameters" (
-		spinner sizeSpinner "Dummy Size" type:#float range:[0, 1000, 2]
-		spinner inertiaSpinner "Hitbox Inertia?" type:#float range:[0, 100, 1]
+		spinner sizeSpinner     "Dummy Size"      type:#float range:[0, 1000, 2]
+		spinner inertiaSpinner  "Hitbox Inertia?" type:#float range:[0, 100, 1] tooltip:"Hitbox part section unknown vector scaler. Zero on moveable parts causes colliding objects transformation nullified."
+		spinner wireSnapSpinner "Wireframe Snap"  type:#float range:[0.0001, 1, 0.025] tooltip:"Wireframe spline knot snapping strength."
 
-		checkbox compoundCheckbox     "Force Compound"        tooltip:"Exporting this part will force output to be compound model (.cmp)."
-		checkbox multilevelCheckbox   "Force MultiLevel"      tooltip:"Force single LOD into MultiLevel with explicit LOD ranges. Does not affect parts with multiple LODs."
-		checkbox zerocenterCheckbox   "Force LOD Center Zero" tooltip:"Force LOD bounding sphere center to zero. Enable for parts in starspheres."
+		checkbox compoundCheckbox   "Force Compound"        tooltip:"Exporting this part will force output to be compound model (.cmp)."
+		checkbox multilevelCheckbox "Force MultiLevel"      tooltip:"Force single LOD into MultiLevel with explicit LOD ranges. Does not affect parts with multiple LODs."
+		checkbox zerocenterCheckbox "Force LOD Center Zero" tooltip:"Force LOD bounding sphere center to zero. Enable for parts in starspheres."
 	)
 
 	on getDisplayMesh do (
@@ -74,7 +76,7 @@ struct RigidPart (
 		if classOf wireframe == VWireData and wireframe.meshID != 0 then appendIfUnique meshIDs wireframe.meshID
 
 		-- Collect VMeshRefs meshID
-		for level in levels do (
+		for level in levels where level.meshID != 0 do (
 			appendIfUnique meshIDs level.meshID
 
 			-- Lookup materialIDs used by VMeshRef in VMeshLibrary
@@ -136,8 +138,8 @@ struct RigidPart (
 	-- Build RigidPartHelper from RigidPart
 	fn Build hardpoints:true wireframes:true boundaries:false meshLib: materialLib: textureLib: size:(MAXLancer.partSize) origin:(Matrix3 1) progress: = (
 		MAXLancer.WriteLog ("Building rigid part: " + name)
-
-		local result = RigidPartHelper name:name size:size transform:origin
+		
+		local result = RigidPartHelper name:(if name.count > 0 then name else "0x0") size:size transform:origin
 		AddToLayer "Parts" result
 
 		if hardpoints then BuildHardpoints result this.hardpoints

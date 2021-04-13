@@ -233,6 +233,8 @@ struct UTFReader (
 	fn Open target = (
 		if not doesFileExist target then throw "File does not exist."
 
+		MAXLancer.WriteLog ("Opening UTF file: " + target)
+
 		directory = fopen target "r"
 		header.ReadStream directory
 
@@ -484,6 +486,8 @@ struct UTFWriter (
 	fn Close = (
 		CloseFile() -- Close any open file
 
+		MAXLancer.WriteLog ("Writing UTF file: " + filename)
+
 		-- Update and write header
 		header.namesSizeAllocated = (AlignStream names) - header.namesOffset
 		header.directoryOffset    = 56 -- Header size
@@ -503,6 +507,7 @@ struct UTFWriter (
 		if doesFileExist filename then if not DeleteFile filename then throw "Could not overwrite existing file" -- Delete file to overwrite
 		if not renameFile (pathConfig.appendPath location "output") filename then throw "Could not copy UTF file to destination" -- Copy result to specified filename
 
+		MAXLancer.WriteLog ("Written " + formattedPrint (getFileSize filename) format:"u" + " bytes")
 		OK
 	)
 )

@@ -428,6 +428,8 @@ struct VMeshData (
 		local groupIndices   -- Vertices in VMeshData matching position
 		local groupIndex     -- Current index in groupPositions and groupIndices
 
+		local faceVisEdges
+		local visEdges = #() -- Array of Point2 for editable mesh indices of visible edges
 		local edges = #()    -- Array of Point2 for vertex buffer indices of visible edges
 
 		-- Process material faces into mesh groups
@@ -456,10 +458,18 @@ struct VMeshData (
 				faceAlphas   = if vertexFormat.colors then meshOp.getMapFace target -2 f
 				faceColors   = if vertexFormat.colors then meshOp.getMapFace target 0 f
 				faceMaps     = for m = 1 to vertexFormat.maps collect meshop.getMapFace target m f
+				faceVisEdges = [0, 0, 0]
 
 				-- Face verteices/edges
 				for i = 1 to 3 do (
 					if indices.count >= 0xFFFF then throw "Too many VMeshData indices"
+					
+					-- Edge is visible and not duplicate
+					if target.wireframe and getEdgeVis target f i then case i of (
+						1: faceVisEdges.x = if appendIfUnique visEdges [faceVertices.x, faceVertices.y] and appendIfUnique visEdges [faceVertices.y, faceVertices.x] then 1 else 0
+						2: faceVisEdges.y = if appendIfUnique visEdges [faceVertices.y, faceVertices.z] and appendIfUnique visEdges [faceVertices.z, faceVertices.y] then 1 else 0
+						3: faceVisEdges.z = if appendIfUnique visEdges [faceVertices.z, faceVertices.x] and appendIfUnique visEdges [faceVertices.x, faceVertices.z] then 1 else 0
+					)
 
 					-- Vertex position
 					vertexPosition = getVert target faceVertices[i]
@@ -548,9 +558,9 @@ struct VMeshData (
 
 				-- Append pair of indices edge visibility
 				if target.wireframe then (
-					if getEdgeVis target f 1 then append edges [faceIndices.x, faceIndices.y]
-					if getEdgeVis target f 2 then append edges [faceIndices.y, faceIndices.z]
-					if getEdgeVis target f 3 then append edges [faceIndices.z, faceIndices.x]
+					if faceVisEdges.x > 0 then append edges [faceIndices.x, faceIndices.y]
+					if faceVisEdges.y > 0 then append edges [faceIndices.y, faceIndices.z]
+					if faceVisEdges.z > 0 then append edges [faceIndices.z, faceIndices.x]
 				)
 
 				if classOf progress == MAXScriptFunction then progress 3
@@ -579,14 +589,14 @@ struct VMeshData (
 		-- Build VWireData from collected edges
 		if wireData == undefined and edges.count > 0 and target.wireframe then (
 			wireData = VWireData meshID:meshRef.meshID vertexStart:meshRef.vertexStart
-
+			
 			MAXLancer.WriteLog ("Generating wireframe from " + formattedPrint edges.count format:"u" + " edges")
-
-			for edge in edges do (
-				wireData.AppendLine edge.x edge.y
-
-				if classOf progress == MAXScriptFunction then progress 0
-			)
+			
+			local indexCount = wireData.AppendLines edges
+			
+			MAXLancer.WriteLog ("Added " + formattedPrint indexCount format:"u" + " wireframe indices to VWireData buffer")
+			
+			if classOf progress == MAXScriptFunction then progress target.edges.count
 		)
 
 		meshRef -- Return VMeshRef
@@ -768,19 +778,30 @@ struct VWireData (
 	fn ReadUTF reader = if reader.OpenFile "VWireData" then ReadStream reader.data else throw "Error reading VWireData",
 
 	fn WriteUTF writer = if writer.OpenFile "VWireData" then WriteStream writer.data else throw "Error writing VWireData",
-
-	fn AppendLine a b = (
-		if indices.count >= 0xFFFF then throw "Too many wireframe indices"
-
-		local duplicate = a == b
-		for i = 1 to indices.count by 2 while not duplicate where (indices[i] == a and indices[i + 1] == b) or (indices[i] == b and indices[i + 1] == a) do duplicate = true
-
-		if not duplicate then (
-			append indices a
-			append indices b
+	
+	-- Add sequence of lines (Array of Point2)
+	fn AppendLines points = (
+		local a, b
+		local duplicate
+		local result = 0
+		
+		for p in points do (
+			duplicate = p.x == p.y
+			
+			-- Check for duplicate and reverse duplicate
+			for i = 1 to indices.count by 2 while not duplicate where (indices[i] == p.x and indices[i + 1] == p.y) or (indices[i] == p.y and indices[i + 1] == p.x) do duplicate = true
+			
+			if not duplicate then (
+				if indices.count >= 0xFFFF then throw "Too many wireframe indices"
+					
+				append indices p.x
+				append indices p.y
+				
+				result += 2
+			)
 		)
-
-		OK
+		
+		result -- Return Integer (number of actual indices added)
 	)
 )
 
@@ -963,7 +984,7 @@ struct VMeshLibrary (
 	),
 
 	-- Parse shape object by mapping spline knots to mesh vertices to create lines in VWireData
-	fn ParseShape target meshRef origin epsilon:0.001 = (
+	fn ParseShape target meshRef origin epsilon:0.05 progress: = (
 		if superClassOf target != shape then throw "Invalid shape object type"
 		if classOf meshRef != VMeshRef then throw "Invalid VMeshRef object"
 
@@ -977,6 +998,7 @@ struct VMeshLibrary (
 		local vertexIndex    -- Current knot vertex index
 		local knotPosition   -- Current knot position vector
 		local vertexPosition -- Lookup vertex position vector
+		local edges = #()    -- Array of Point2
 
 		MAXLancer.WriteLog ("Parsing wireframe: " + target.name)
 
@@ -996,16 +1018,21 @@ struct VMeshLibrary (
 					if abs (knotPosition.x - vertexPosition.x) <= epsilon and abs (knotPosition.y - vertexPosition.y) <= epsilon and abs (knotPosition.z - vertexPosition.z) <= epsilon then vertexIndex = v
 				)
 
-				if vertexIndex == 0 then throw ("No matching vertex for " + target.name + " in spline " + formattedPrint s format:"u" + " at knot " + formattedPrint k format:"u")
+				if vertexIndex > 0 then (
+					if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop
+					if k > 1 and previousIndex > 0 and vertexIndex > 0 and previousIndex != vertexIndex then append edges [previousIndex - 1, vertexIndex - 1]
 
-				if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop
-				if k > 1 and previousIndex > 0 and vertexIndex > 0 then wireData.AppendLine (previousIndex - 1) (vertexIndex - 1) -- Create line point2 starting from second knot
-
-				previousIndex = vertexIndex
+					previousIndex = vertexIndex
+				) else MAXLancer.WriteLog ("WARNING: No matching vertex for " + target.name + " in spline " + formattedPrint s format:"u" + " at knot " + formattedPrint k format:"u")
 			)
 
-			if isClosed target s and firstIndex > 0 and previousIndex > 0 then wireData.AppendLine (previousIndex - 1) (firstIndex - 1)
+			if isClosed target s and firstIndex > 0 and previousIndex > 0 then append edges [previousIndex - 1, firstIndex - 1]
+
+			if classOf progress == MAXScriptFunction then progress (numSegments target s)
 		)
+		
+		local indexCount = wireData.AppendLines edges
+		MAXLancer.WriteLog ("Added " + formattedPrint indexCount format:"u" + " wireframe indices to VWireData buffer")
 
 		wireData -- Return VWireData
 	),
@@ -1036,7 +1063,7 @@ struct VMeshLibrary (
 			ranges[i + 1] = levelMesh.range
 
 			-- Set wireframe if available
-			if wireframes and wireframe == undefined and superClassOf wireShape == shape and wireShape.parent == levelMesh then wireframe = ParseShape wireShape meshRef target.transform
+			if wireframes and wireframe == undefined and superClassOf wireShape == shape and wireShape.parent == levelMesh then wireframe = ParseShape wireShape meshRef target.transform epsilon:target.wireSnap progress:progress
 
 			levels[i] = meshRef
 		)

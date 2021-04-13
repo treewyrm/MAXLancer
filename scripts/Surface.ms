@@ -693,7 +693,8 @@ struct SurfacePart (
 				if (index = findItem hashes current.hull.hullID) > 0 then hull.name = names[index]
 
 				if current.hull.type == 4 then (
-					if not compound then hull.name = target.name
+					if not compound and index == 0 then hull.name = target.name
+
 					AddToLayer "Hulls" hull
 				) else (
 					hull.name = target.name + "_Wrap"

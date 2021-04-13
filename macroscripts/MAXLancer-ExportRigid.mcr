@@ -24,6 +24,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		local meshCount      = 0 -- Number of mesh references
 		local materialCount  = 0 -- Number of exportable materials
 		local wireCount      = 0 -- Number of HUD wireframes
+		local lineCount      = 0 -- Number of lines in all wireframes
 		local hardpointCount = 0 -- Number of hardpoints
 		local hullCount      = 0 -- Number of convex hulls
 		local animationCount = 0 -- Number of animation layers
@@ -50,10 +51,10 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		checkbox versionCheckbox "Add Exporter Version" pos:[296, 272] width:128 height:16 checked:true toolTip:"Add exporter version entry into model file."
 	
 		button exportButton "Export Model" pos:[288, 304] width:144 height:24
-		progressBar parseProgress "" pos:[8, 336] width:424 height:8
+		progressBar exportProgress "" pos:[8, 336] width:424 height:8
 		
 		fn ProgressCallback count = (
-			parseProgress.value = (progressCount += count) * 100.0 / (indexCount + triangleCount)
+			exportProgress.value = (progressCount += count) * 100.0 / (indexCount + triangleCount + lineCount)
 			windows.processPostedMessages()
 		)
 
@@ -261,8 +262,14 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 
 			if wireframe != undefined then (
 				type = case superClassOf wireframe of (
-					GeometryClass: "Edges"
-					Shape: "Line"
+					GeometryClass: (
+						lineCount += wireframe.edges.count 
+						"Edges"
+					)
+					Shape: (
+						for s = 1 to numSplines wireframe do lineCount += numSegments wireframe s
+						"Line"
+					)
 				)
 
 				parent.Nodes.add ("Wireframe (" + type + "): " + wireframe.name)

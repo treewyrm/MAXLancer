@@ -11,7 +11,7 @@ MaxScript toolset for 3Ds MAX to import and export Freelancer 3db/cmp 3D models.
 
 ## Prerequisites
 - Autodesk 3ds Max 2017 or above (tested with 3ds Max 2018)
-- [Nvidia Texture Tools](https://github.com/castano/nvidia-texture-tools)
+- [Nvidia Texture Tools](https://github.com/castano/nvidia-texture-tools/releases/tag/2.1.1)
 - Microsoft Freelancer
 
 ## Installation
@@ -31,7 +31,7 @@ After installation is complete follow these steps to finish the process:
 - Specify paths:
   - Freelancer (typically _C:\Program Files\Microsoft Games\Freelancer_).
   - Nvidia Texture Tools.
-  - Textures (typically _C:\Users\[User]\Documents\3dsMax\sceneassets\images\MAXLancer_).
+  - Textures (typically _C:\Users\\[User]\Documents\3dsMax\sceneassets\images\MAXLancer_).
   - Shaders (typically _C:\Program Files\Autodesk\3ds Max 2018\maps\fx\MAXLancer_).
 - Press OK button.
 

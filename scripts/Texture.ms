@@ -387,7 +387,9 @@ struct FLTextureLibrary (
 				writer.CloseFolder() -- Close filename
 			)
 
-			writer.WriteFileInteger "Texture count" items.count #unsigned
+			-- Not used, causes FL to write log warnings about unknown texture type
+			-- writer.WriteFileInteger "Texture count" items.count #unsigned
+			
 			writer.CloseFolder() -- Close texture library
 		)
 
