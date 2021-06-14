@@ -77,14 +77,15 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				start = timeStamp()
 
 				-- Initialize libraries
-				meshLib      = MAXLancer.VMeshLibrary()
-				materialLib  = MAXLancer.FLMaterialLibrary()
-				textureLib   = MAXLancer.FLTextureLibrary()
-				animationLib = MAXLancer.AnimationLibrary()
-				surfaceLib   = MAXLancer.SurfaceLibrary()
+				meshLib      = MAXLancer.CreateVMeshLibrary()
+				materialLib  = MAXLancer.CreateMaterialLibrary()
+				textureLib   = MAXLancer.CreateTextureLibrary()
+				animationLib = MAXLancer.CreateAnimationLibrary()
+				surfaceLib   = MAXLancer.CreateSurfaceLibrary()
 
 				-- Parse into model
-				result = if compound then MAXLancer.RigidCompound filename:filename else MAXLancer.RigidPart filename:filename
+				result = if compound then MAXLancer.CreateRigidCompound() else MAXLancer.CreateRigidPart()
+				result.filename = filename
 
 				-- Parse model
 				result.Parse target \
@@ -96,7 +97,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 					progress:    ProgressCallback
 
 				-- Open UTF writer
-				writer = MAXLancer.UTFWriter()
+				writer = MAXLancer.CreateUTFWriter()
 				writer.Open filename
 
 				-- Write VMeshLibrary
@@ -179,7 +180,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			local child      -- TreeViewNode
 			local subchild   -- TreeViewNode
 
-			local items = MAXLancer.SurfaceLibrary.GetPartSurfaces part &hardpoints &center
+			local items = MAXLancer.GetPartSurfaces part &hardpoints &center
 			
 			if items.count > 0 do (
 				child = parent.Nodes.add ("")
@@ -188,29 +189,26 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				
 				local count = 0
 
-				for item in items do case classOf item of (
-					(MAXLancer.HardpointHelper): (
-						subchild = child.Nodes.add (item.name + " (" + formattedPrint (getNumFaces item.hullMesh) format:"u" + " faces)")
-						
-						triangleCount += getNumFaces item.hullMesh
-						hullCount += 1
-						count += 1
-						
-						subchild.ForeColor = hardpointHullColor
-					)
-					Editable_mesh: (
-						elements = MAXLancer.GetMeshElements item
+				for item in items do if MAXLancer.IsHardpointHelper item then (
+					subchild = child.Nodes.add (item.name + " (" + formattedPrint (getNumFaces item.hullMesh) format:"u" + " faces)")
+					
+					triangleCount += getNumFaces item.hullMesh
+					hullCount += 1
+					count += 1
+					
+					subchild.ForeColor = hardpointHullColor
+				) else if classOf item == Editable_mesh then (
+					elements = MAXLancer.GetMeshElements item
 
-						triangleCount += getNumFaces item
-						hullCount += elements.count
-						count += elements.count
+					triangleCount += getNumFaces item
+					hullCount += elements.count
+					count += elements.count
 
-						for faces in elements do (
-							subchild = child.Nodes.add (item.name + " (" + formattedPrint faces.numberSet format:"u" + " faces)")
-							if item.parent != part then subchild.Text += ": " + item.parent.name
+					for faces in elements do (
+						subchild = child.Nodes.add (item.name + " (" + formattedPrint faces.numberSet format:"u" + " faces)")
+						if item.parent != part then subchild.Text += ": " + item.parent.name
 
-							if findItem hardpoints (MAXLancer.Hash item.name) > 0 then subchild.ForeColor = hardpointHullColor
-						)
+						if findItem hardpoints (MAXLancer.Hash item.name) > 0 then subchild.ForeColor = hardpointHullColor
 					)
 				)
 				
@@ -248,7 +246,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 
 		fn ListLevels part parent = (
 			local wireframe 
-			local levels = MAXLancer.VMeshLibrary.GetPartLevels part &wireframe
+			local levels = MAXLancer.GetPartLevels part &wireframe
 			local child
 			local type
 
@@ -280,7 +278,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		)
 
 		fn ListAnimations part parent = (
-			local layers = MAXLancer.AnimationLibrary.GetAnimations part
+			local layers = MAXLancer.GetAnimations part
 
 			if layers.count > 0 do (
 				parent = parent.Nodes.Add "Animations"
@@ -316,21 +314,13 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				part   = queue[queue.count].v2
 				queue.count = queue.count - 1
 
-				type = case classOf (joint = MAXLancer.GetCompoundJoint part root:(root == part)) of (
-					(MAXLancer.JointFixed):     "Fixed"
-					(MAXLancer.JointRevolute):  "Revolute"
-					(MAXLancer.JointPrismatic): "Prismatic"
-					(MAXLancer.JointCylindric): "Cylindric"
-					(MAXLancer.JointSpheric):   "Spheric"
-					(MAXLancer.JointLoose):     "Loose"
-					default:                    "Unknown"
-				)
-
+				joint = MAXLancer.GetCompoundJoint part root:(root == part)
+				type  = MAXLancer.GetJointType joint
 				child = parent.Nodes.add (part.name + " (" + type + ")")
 				ListPart part child
 				
 				if part == root then child.Expand()
-				for subpart in part.children where classof subpart == MAXLancer.RigidPartHelper do append queue (DataPair child subpart)
+				for subpart in part.children where MAXLancer.IsRigidPartHelper subpart do append queue (DataPair child subpart)
 			)
 
 			OK
@@ -371,6 +361,6 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 
 	on execute do if MAXLancer != undefined then (
 		target = if selection.count == 1 then selection[1]
-		if classOf target == MAXLancer.RigidPartHelper then CreateDialog ExportRigidRollout else messageBox "Please select root rigid part helper to export."
+		if MAXLancer.IsRigidPartHelper target then CreateDialog ExportRigidRollout else messageBox "Please select root rigid part helper to export."
 	) else messageBox "MAXLancer is not initialized."
 )

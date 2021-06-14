@@ -114,7 +114,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 				
 				-- Buils surfaces
 				if centersCheckbox.checked or extentsCheckbox.checked or hullsCheckbox.checked or wrapsCheckbox.checked or nodesCheckbox.checked then
-					surfaceLib.Build result (classOf model == MAXLancer.RigidCompound) \
+					surfaceLib.Build result (MAXLancer.IsRigidCompound model) \
 						centers:  centersCheckbox.checked \
 						extents:  extentsCheckbox.checked \
 						nodes:    nodesCheckbox.checked \
@@ -257,7 +257,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 			ListHardpoints part parent
 			ListHulls      part parent
 
-			if classOf model == MAXLancer.RigidCompound then ListAnimations part parent
+			if MAXLancer.IsRigidCompound model then ListAnimations part parent
 
 			OK
 		)
@@ -275,16 +275,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 
 				queue.count = queue.count - 1
 
-				type = if part == model.root then "Compound Root" else case classOf (model.GetPartJoint part) of (
-					(MAXLancer.JointFixed): "Fixed"
-					(MAXLancer.JointRevolute): "Revolute"
-					(MAXLancer.JointPrismatic): "Prismatic"
-					(MAXLancer.JointCylindric): "Cylindric"
-					(MAXLancer.JointSpheric): "Spheric"
-					(MAXLancer.JointLoose): "Loose"
-					default: throw ("Unknown subpart joint in " + part.name)
-				)
-
+				type = if part == model.root then "Compound Root" else MAXLancer.GetJointType (model.GetPartJoint part)
 				child = parent.Nodes.add (part.name + " (" + type + ")")
 				ListPart part child
 				
@@ -302,20 +293,20 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 			treeBox.ForeColor = MAXLancer.GetNetColorMan #windowText
 			
 			try (
-				local reader = MAXLancer.UTFReader()
+				local reader = MAXLancer.CreateUTFReader()
 				reader.Open filename
 
 				-- Detect model type instead of relying on file extension
-				model = if reader.OpenFolder "Cmpnd" then MAXLancer.RigidCompound() else MAXLancer.RigidPart()
+				model = if reader.OpenFolder "Cmpnd" then MAXLancer.CreateRigidCompound() else MAXLancer.CreateRigidPart()
 				model.ReadUTF reader
 				reader.Close()
 
 				-- Initialize libraries
-				meshLib      = MAXLancer.VMeshLibrary()
-				materialLib  = MAXLancer.FLMaterialLibrary()
-				textureLib   = MAXLancer.FLTextureLibrary()
-				animationLib = MAXLancer.AnimationLibrary()
-				surfaceLib   = MAXLancer.SurfaceLibrary()
+				meshLib      = MAXLancer.CreateVMeshLibrary()
+				materialLib  = MAXLancer.CreateMaterialLibrary()
+				textureLib   = MAXLancer.CreateTextureLibrary()
+				animationLib = MAXLancer.CreateAnimationLibrary()
+				surfaceLib   = MAXLancer.CreateSurfaceLibrary()
 
 				-- Rigid collision surfaces are always stored externally in .sur file matching model filename
 				-- Probably they should have kept it inside UTF files
@@ -328,7 +319,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 
 				-- Compound animations are always stored within .cmp file and unlike .dfm they cannot be kept
 				-- externally in .anm file as there is no mechanism to reference them in archetypes.
-				if classOf model == MAXLancer.RigidCompound then (
+				if MAXLancer.IsRigidCompound model then (
 					animationLib.LoadFile filename
 					ListCompound model.root treeBox
 				) else ListPart model treeBox

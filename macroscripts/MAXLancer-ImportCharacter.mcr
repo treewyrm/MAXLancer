@@ -6,7 +6,7 @@
 macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" buttontext:"Import Character" iconName:"MAXLancer/import_models" (
 	global MAXLancer
 
-	rollout ImportCharacterRollout "Import Character" width:136 height:184 (
+	rollout ImportCharacterRollout "Import Character" width:384 height:184 (
 		local materialLib -- FLMaterialLibrary
 		local textureLib  -- FLTextureLibrary
 
@@ -20,11 +20,21 @@ macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" butt
 		local progressCount = 0
 
 		button loadBodyButton "Load Body" pos:[8,8] width:120 height:24
+		editText bodyFilename "" pos:[136,12] width:240 height:16 readOnly:true
+
 		button loadHeadButton "Load Head" pos:[8,40] width:120 height:24 enabled:false
+		editText headFilename "" pos:[136,44] width:240 height:16 readOnly:true
+
 		button loadLeftHandButton "Load Left Hand" pos:[8,72] width:120 height:24 enabled:false
+		editText leftHandFilename "" pos:[136,76] width:240 height:16 readOnly:true
+
 		button loadRightHandButton "Load Right Hand" pos:[8,104] width:120 height:24 enabled:false
-		button buildButton "Build Character" pos:[8,136] width:120 height:24 enabled:false
-		progressBar buildProgress "" pos:[8,168] width:120 height:8
+		editText rightHandFilename "" pos:[136,108] width:240 height:16 readOnly:true
+
+		spinner scaleSpinner "Scale:" pos:[8,140] width:90 height:16
+
+		button buildButton "Build Character" pos:[216,136] width:160 height:24 enabled:false align:#left
+		progressBar buildProgress "" pos:[8,168] width:368 height:8
 		
 		fn LoadPart caption = (
 			local filename = getOpenFileName caption:caption types:"Deformable Model (.dfm)|*.dfm|"
@@ -33,6 +43,7 @@ macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" butt
 		
 		on loadBodyButton pressed do (
 			body = LoadPart "Select Body Model:"
+			bodyFilename.text = body.filename
 			
 			if body != undefined then (
 
@@ -44,9 +55,20 @@ macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" butt
 			) else buildButton.enabled = false
 		)
 
-		on loadHeadButton pressed do      head      = LoadPart "Select Head Model:"
-		on loadLeftHandButton pressed do  leftHand  = LoadPart "Select Left Hand Model:"
-		on loadRightHandButton pressed do rightHand = LoadPart "Select Left Hand Model:"
+		on loadHeadButton pressed do (
+			head = LoadPart "Select Head Model:"
+			headFilename.text = head.filename
+		)
+
+		on loadLeftHandButton pressed do (
+			leftHand = LoadPart "Select Left Hand Model:"
+			leftHandFilename.text = leftHand.filename
+		)
+
+		on loadRightHandButton pressed do (
+			rightHand = LoadPart "Select Left Hand Model:"
+			rightHandFilename.text = rightHand.filename
+		)
 			
 		fn ProgressCallback count = (
 			buildProgress.value = (progressCount += count) * 100.0 / faceCount
@@ -77,8 +99,8 @@ macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" butt
 		)
 		
 		on ImportCharacterRollout open do (
-			materialLib = MAXLancer.FLMaterialLibrary()
-			textureLib  = MAXLancer.FLTextureLibrary()
+			materialLib = MAXLancer.CreateMaterialLibrary()
+			textureLib  = MAXLancer.CreateTextureLibrary()
 			OK
 		)
 	)

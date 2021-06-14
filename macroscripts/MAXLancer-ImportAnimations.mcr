@@ -27,15 +27,15 @@ macroscript ImportAnimations category:"MAXLancer" tooltip:"Import Animations" bu
 				library.ReadUTF reader filter:filenames
 				reader.Close()
 
-				library.Build root
+				library.Build root attached:true
 
 				DestroyDialog ImportAnimationRollout
 			)
 		)
 
 		on ImportAnimationRollout open do (
-			reader  = MAXLancer.UTFReader()
-			library = MAXLancer.AnimationLibrary()
+			reader  = MAXLancer.CreateUTFReader()
+			library = MAXLancer.CreateAnimationLibrary()
 			
 			scriptListView.BackColor   = MAXLancer.GetNetColorMan #window
 			scriptListView.ForeColor   = MAXLancer.GetNetColorMan #windowText

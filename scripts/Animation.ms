@@ -27,8 +27,8 @@
 0x04 - Keyframe contains rotation quaternion (4x float, components in reverse order: WZYX)
 0x08 - Unknown
 
-0x10 - Implicit identity position vector
-0x20 - Implicit identity rotation quaternion
+0x10 - Implicit identity position vector?
+0x20 - Implicit identity rotation quaternion?
 0x40 - Compressed quaternion (restore w component)
 0x80 - Compressed quaternion (harmonic mean)
 
@@ -68,6 +68,19 @@ struct AnimationChannel (
 		count -- Return number of keyframes
 	),
 
+	fn GetTypeString = (
+		local result = "("
+
+		if bit.get type 1 then result += " float"
+		if bit.get type 2 then result += " vec3"
+		if bit.get type 3 then result += " quat"
+		if bit.get type 7 then result += " quat(cayley)"
+		if bit.get type 8 then result += " quat(harmonic-mean)"
+
+		result += " )"
+		result -- Return string
+	),
+
 	-- Get key as Time value
 	fn GetKeyTime i = (if i > 0 and i <= count then (frameRate * (if interval < 0 then keys[i] else (i - 1) * interval))) as time,
 
@@ -89,6 +102,8 @@ struct AnimationChannel (
 
 		OK
 	),
+
+
 
 	-- Read channel frames
 	fn ReadFramesUTF reader child: = (
@@ -119,7 +134,8 @@ struct AnimationChannel (
 			if bit.get type 4 then ReadPoint2     reader.data (pairs[i] = [0, 0])        -- Pair
 
 			-- Cayley quantization?
-			if bit.get type 7 then ReadQuaternion0x40 reader.data (rotations[i] = quat 1) mode:mode
+			-- if bit.get type 7 then ReadQuaternion0x40 reader.data (rotations[i] = quat 1) -- mode:mode
+			if bit.get type 7 then ReadQuaternionHalfAngle reader.data (rotations[i] = quat 1)
 
 			-- Harmonic mean (half angle and cayley) quantization
 			if bit.get type 8 then ReadQuaternion0x80 reader.data (rotations[i] = quat 1)
@@ -142,6 +158,8 @@ struct AnimationChannel (
 		if not reader.OpenFolder "Channel" then throw "Map is missing Channel."
 
 		ReadHeaderUTF reader
+		MAXLancer.WriteLog ("Reading animation channel for " + (if child == unsupplied then "[model object]" else child) + " of type " + (GetTypeString()) + " contains " + count as string + " keyframes at interval of " + interval as string)
+
 		ReadFramesUTF reader child:child
 
 		reader.CloseFolder() -- Close Channel
@@ -458,6 +476,12 @@ struct AnimationLibrary (
 		result -- Return controller
 	),
 
+	-- Set subcontroller of the property by layer name
+	fn SetLayerController layerController name valueController = (
+		if IsLayerController layerController then for i = 2 to layerController.getCount() where layerController.getLayerName i == name do layerController[i].controller = valueController
+		OK
+	),
+
 	fn BuildJointRevolute target scripts = (
 		local map, turn
 
@@ -584,10 +608,10 @@ struct AnimationLibrary (
 	),
 
 	-- Walk through hierarchy of deformable skeleton and apply animations
-	fn Build root filter: = (
+	fn Build root filter: attached:true = (
 		if not isValidNode root then throw "Invalid root node object."
 
-		local subparts = GetPartChildren root deep:true
+		local subparts = GetPartChildren root deep:true attached:true
 		local parts    = #(root) + subparts
 		local items    = #() -- Array of AnimationScript
 		
@@ -630,6 +654,41 @@ struct AnimationLibrary (
 		OK
 	),
 
+	-- Resamples controller into linear float
+	fn SampleController controller rate:(MAXLancer.animationSamplingRate) threshold:(MAXLancer.animationSamplingThreshold) range: mergeFrames:true = (
+		local result = case superClassOf controller of (
+			FloatController: linear_float()
+			Point3Controller: linear_position()
+			PositionController: linear_position()
+			RotationController: linear_rotation()
+			default: throw "Unsupported controller type: " + superClassOf controller
+		)
+
+		local lastTime -- float
+		local lastValue
+		local skipCount = 0
+		local frames = frameRate / rate
+
+		if range == unsupplied then range = interval controller.keys[1].time controller.keys[controller.keys.count].time
+
+		for f = range.start to range.end by frames do at time f (
+			if mergeFrames and controller.value == lastValue and f < range.end then skipCount += 1 else (
+				if skipCount > 0 then (AddNewKey result lastTime).value = lastValue
+				(AddNewKey result f).value = controller.value
+				skipCount = 0 -- Reset counter
+			)
+
+			lastTime = f
+			lastValue = controller.value
+		)
+
+		if threshold > 0 then reduceKeys result threshold (frameRate / rate)
+
+		MAXLancer.WriteLog ("Resampled non-linear controller to " + (result.keys.count as string) + " keyframes.")
+
+		result
+	),
+
 	fn ParseJointRevolute target scripts = (
 		local map, turn
 
@@ -641,6 +700,12 @@ struct AnimationLibrary (
 			map.channel.type = bit.set map.channel.type 1 true
 
 			MAXLancer.WriteLog ("Parsing revolute joint (" + target.name + ") animation: " + item.name)
+
+			-- Non-linear controllers should be sampled for linear
+			if classOf turn != linear_float then (
+				turn = SampleController turn
+				if MAXLancer.animationSamplingOverwrite then SetLayerController target.transform.controller.turn.controller item.name turn
+			)
 
 			for k = 1 to turn.keys.count do map.channel.AddKey turn.keys[k].time floatValue:(DegToRad turn.keys[k].value)
 
@@ -661,6 +726,12 @@ struct AnimationLibrary (
 			map.channel.type = bit.set map.channel.type 1 true
 
 			MAXLancer.WriteLog ("Parsing prismatic joint (" + target.name + ") animation: " + item.name)
+
+			-- Non-linear controllers should be sampled for linear
+			if classOf slide != linear_float then (
+				slide = SampleController slide
+				if MAXLancer.animationSamplingOverwrite then SetLayerController target.transform.controller.slide.controller item.name slide
+			)
 
 			for k = 1 to slide.keys.count do map.channel.AddKey slide.keys[k].time floatValue:slide.keys[k].value
 
@@ -715,6 +786,11 @@ struct AnimationLibrary (
 
 			MAXLancer.WriteLog ("Parsing spheric joint (" + target.name + ") animation: " + item.name)
 
+			if classOf rotation != linear_rotation then (
+				rotation = SampleController rotation
+				if MAXLancer.animationSamplingOverwrite then SetLayerController target.transform.controller.rotation.controller item.name rotation
+			)
+
 			for k = 1 to rotation.keys.count do map.channel.AddKey rotation.keys[k].time rotationValue:rotation.keys[k].value
 
 			append item.maps map
@@ -730,6 +806,16 @@ struct AnimationLibrary (
 		for item in scripts do (
 			position = GetLayerController target.transform.controller.position.controller item.name
 			rotation = GetLayerController target.transform.controller.rotation.controller item.name
+
+			if position != undefined and classOf position != linear_position then (
+				position = SampleController position
+				if MAXLancer.animationSamplingOverwrite then SetLayerController target.transform.controller.position.controller item.name position
+			)
+
+			if rotation != undefined and classOf rotation != linear_rotation then (
+				rotation = SampleController rotation
+				if MAXLancer.animationSamplingOverwrite then SetLayerController target.transform.controller.rotation.controller item.name rotation
+			)
 
 			-- Combine keys
 			keys = #()
@@ -770,7 +856,7 @@ struct AnimationLibrary (
 
 			sort keys
 
-			map = AnimationJointMap parent:target.parent.name child:target.name
+			map = AnimationObjectMap parent:target.name
 
 			if position.keys.count > 0 then map.channel.type = bit.set map.channel.type 2 true
 			if rotation.keys.count > 0 then map.channel.type = bit.set map.channel.type 3 true

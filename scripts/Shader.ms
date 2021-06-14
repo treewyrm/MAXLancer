@@ -5,6 +5,7 @@
  */
 
 struct ShaderLibrary (
+	filename, -- String
 	types        = #(), -- Array of string ("DcDt", etc)
 	techniques   = #(), -- Array of integer (DxMaterial.technique)
 	filenames    = #(), -- Array of string (DxMaterial.effectFilename)
@@ -73,6 +74,7 @@ struct ShaderLibrary (
 
 	fn LoadFile target = (
 		if not doesFileExist target then throw ("Shaders list file does not exist:\r\n" + target)
+		filename = target
 
 		local settings = dotNetObject "System.Xml.XmlReaderSettings"
 

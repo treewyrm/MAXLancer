@@ -211,7 +211,7 @@ struct VMeshData (
 
 	on create do for m = 1 to vertexFormat.maps do maps[m] = #(),
 
-	fn ReadStream stream = (
+	fn ReadStream stream buffers:true = (
 		version       = ReadLong  stream #unsigned
 		mode          = ReadLong  stream #unsigned
 		groups.count  = ReadShort stream #unsigned
@@ -234,16 +234,19 @@ struct VMeshData (
 		-- Read mesh groups
 		for g = 1 to groups.count do (groups[g] = VMeshGroup()).ReadStream stream
 
-		-- Read triangle indices
-		for i = 1 to indices.count do indices[i] = ReadShort stream #unsigned	
+		if buffers then (
 
-		-- Read vertex buffer
-		for v = 1 to vertexCount do (
-			if vertexFormat.positions then ReadPosition     stream (positions[v] = [0, 0, 0])
-			if vertexFormat.normals   then ReadPosition     stream (normals[v]   = [0, 0, 0])
-			if vertexFormat.colors    then ReadColorInteger stream (colors[v]    = white)
+			-- Read triangle indices
+			for i = 1 to indices.count do indices[i] = ReadShort stream #unsigned	
 
-			for m = 1 to vertexFormat.maps do maps[m][v] = [ReadFloat stream, ReadFloat stream, 0]
+			-- Read vertex buffer
+			for v = 1 to vertexCount do (
+				if vertexFormat.positions then ReadPosition     stream (positions[v] = [0, 0, 0])
+				if vertexFormat.normals   then ReadPosition     stream (normals[v]   = [0, 0, 0])
+				if vertexFormat.colors    then ReadColorInteger stream (colors[v]    = white)
+
+				for m = 1 to vertexFormat.maps do maps[m][v] = [ReadFloat stream, ReadFloat stream, 0]
+			)
 		)
 
 		OK
@@ -279,63 +282,9 @@ struct VMeshData (
 		OK
 	),
 
-	fn ReadUTF reader = if reader.OpenFile "VMeshData" then ReadStream reader.data else throw "Error reading VMeshData",
+	fn ReadUTF reader buffers:true = if reader.OpenFile "VMeshData" then ReadStream reader.data buffers:buffers else throw "Error reading VMeshData",
 
 	fn WriteUTF writer = if writer.OpenFile "VMeshData" then WriteStream writer.data else throw "Error writing VMeshData",
-
-	-- Append single vertex attributes for VMeshRef
-	-- TODO: This is actually source of slowdown. Apparently moving it to be inline code of parsing speeds things up considerably
-	fn AppendVertex meshRef meshGroup vertexPosition vertexNormal vertexColor vertexMaps = (
-
-		/*
-		if classOf meshRef != VMeshRef then throw "Invalid VMeshRef object"
-		if classOf meshGroup != VMeshGroup then throw "Invalid VMeshGroup object"
-
-		if vertexFormat.positions and classOf vertexPosition != Point3 then throw "Invalid vertex position type"
-		if vertexFormat.normals and classOf vertexNormal != Point3 then throw "invalid vertex normal type"
-		if vertexFormat.colors and classOf vertexColor != Color then throw "Invalid vertex color type"
-		if vertexFormat.maps > 0 and classOf vertexMaps != Array then throw "Invalid vertex maps array"
-		*/
-
-		local index = 0
-		local match = true
-		local passed = 0
-
-		/*
-		-- Find existing vertex attributes index
-		for v = meshRef.vertexStart + meshGroup.vertexStart + 1 to meshRef.vertexStart + meshRef.vertexCount while index == 0 do (
-			match = true
-
-			if match and vertexFormat.positions then match = match and positions[v] == vertexPosition
-			if match and vertexFormat.normals   then match = match and normals[v]   == vertexNormal
-			if match and vertexFormat.colors    then match = match and colors[v]    == vertexColor
-
-			for m = 1 to vertexFormat.maps while match do match = match and maps[m][v] == vertexMaps[m]
-
-			if match then index = v
-
-			passed += 1
-		)
-
-		format "%: % - % (%) : %\n" (formatID meshGroup.materialID) (meshRef.vertexStart + meshGroup.vertexStart + 1) (meshRef.vertexStart + meshRef.vertexCount) (meshRef.vertexStart + meshRef.vertexCount - (meshRef.vertexStart + meshGroup.vertexStart + 1)) passed
-		*/
-
-		-- Add vertex attributes
-		if index == 0 then (
-			if vertexCount >= 0xFFFF then throw "Too many VMeshData vertices"
-
-			if vertexFormat.positions then append positions vertexPosition
-			if vertexFormat.normals   then append normals   vertexNormal
-			if vertexFormat.colors    then append colors    vertexColor
-
-			for m = 1 to vertexFormat.maps do append maps[m] vertexMaps[m]
-
-			meshRef.vertexCount += 1 -- Increment number of unique vertices in VMeshRef
-			index = vertexCount += 1 -- Increment number of unique vertex attributes in VMeshData
-		)
-
-		index - meshRef.vertexStart - meshGroup.vertexStart - 1 -- Return vertex index in VMeshData relative to VMeshRef.vertexStart
-	),
 
 	-- Append VMeshData block
 	fn AppendData meshData = (
@@ -424,8 +373,8 @@ struct VMeshData (
 		local vertexIndex    -- Vertex index in VMeshData relative to VMeshGroup.vertexStart + VMeshRef.vertexStart
 		local vertexMatch    -- Boolean
 
-		local groupPositions -- Unique Point3 positions within VMeshGroups
-		local groupIndices   -- Vertices in VMeshData matching position
+		local groupPositions -- Unique Point3 positions within VMeshGroups (Array of Point3)
+		local groupIndices   -- Vertices in VMeshData matching position (Array of BitArray)
 		local groupIndex     -- Current index in groupPositions and groupIndices
 
 		local faceVisEdges
@@ -444,6 +393,7 @@ struct VMeshData (
 			meshGroup  = VMeshGroup materialID:(MAXLancer.Hash materials[m].name) vertexStart:meshRef.vertexCount
 			vertexMaps = #()
 
+			-- Initialize group position vectors and matching indices
 			groupPositions = #()
 			groupIndices   = #()
 
@@ -503,17 +453,19 @@ struct VMeshData (
 					-- Vertex texture maps
 					for m = 1 to faceMaps.count do vertexMaps[m] = meshOp.getMapVert target m faceMaps[m][i]
 
+					-- Find another vertex in group by position
 					groupIndex = findItem groupPositions vertexPosition
 
+					-- Otherwise add vertex position to group and initialize bitarray
 					if groupIndex == 0 then (
 						groupIndex = (append groupPositions vertexPosition).count
 						groupIndices[groupIndex] = #{}
 					)
 
-					-- Reset index
+					-- Reset buffered vertex index
 					vertexIndex = 0
 
-					-- Loopup for other properties
+					-- Look through other vertices in group matching the position to find duplicate
 					for v in groupIndices[groupIndex] while vertexIndex == 0 do (
 						if vertexFormat.normals and normals[v] != vertexNormal then continue
 						if vertexFormat.colors  and colors[v]  != vertexColor then continue
@@ -523,7 +475,7 @@ struct VMeshData (
 						for m = 1 to vertexFormat.maps while vertexIndex > 0 where maps[m][v] != vertexMaps[m] do vertexIndex = 0					
 					)
 
-					-- Add vertex attributes
+					-- When no match was found add vertex attribute to buffer
 					if vertexIndex == 0 then (
 						if vertexCount >= 0xFFFF then throw "Too many VMeshData vertices"
 
@@ -538,6 +490,7 @@ struct VMeshData (
 						meshRef.vertexCount += 1 -- Increment number of unique vertices in VMeshRef
 					)
 
+					-- Populate group index reference for buffered vertex
 					groupIndices[groupIndex][vertexIndex] = true
 
 					-- Vertex index in VMeshData relative to VMeshRef.vertexStart
@@ -1071,7 +1024,7 @@ struct VMeshLibrary (
 		OK
 	),
 
-	fn ReadUTF reader filter: = (
+	fn ReadUTF reader filter: buffers:true = (
 		if classOf reader != UTFReader then throw "Invalid UTFReader object"
 
 		local meshData -- VMeshData
@@ -1080,7 +1033,7 @@ struct VMeshLibrary (
 			for id in (if filter == unsupplied then reader.GetFolders() else filter) where GetMesh id == undefined do (
 				if not reader.OpenFolder id then throw ("Error reading " + formatID (MAXLancer.Hash id))
 
-				(meshData = VMeshData filename:(reader.ReadName reader.entry.nameOffset)).ReadUTF reader
+				(meshData = VMeshData filename:(reader.ReadName reader.entry.nameOffset)).ReadUTF reader buffers:buffers
 
 				append meshes meshData
 				reader.CloseFolder() -- Close meshData.filename

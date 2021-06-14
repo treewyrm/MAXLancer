@@ -96,14 +96,14 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 				local listItem
 				local listItems = #()
 
-				textureLib  = MAXLancer.FLTextureLibrary()
-				materialLib = MAXLancer.FLMaterialLibrary()
+				textureLib  = MAXLancer.CreateTextureLibrary()
+				materialLib = MAXLancer.CreateMaterialLibrary()
 
 				materialLib.LoadFile filename
 
 				for target in materialLib.materials do (
 					listItem = dotNetObject "System.Windows.Forms.ListViewItem" target.name
-					listItem.subitems.Add (MAXLancer.shaders.GetTypeByMaterial target)
+					listItem.subitems.Add ((MAXLancer.GetShaders()).GetTypeByMaterial target)
 					append listItems listItem
 					
 					if findItem hashes (MAXLancer.Hash target.name) > 0 then listItem.Checked = true

@@ -343,7 +343,7 @@ struct DeformableMesh (
 			local boneIDs = (for b = 1 to pointBoneCount[v] collect boneIndexChain[pointBoneFirst[v] + b] + 1)
 			local boneWeights = (for b = 1 to pointBoneCount[v] collect boneWeightChain[pointBoneFirst[v] + b])
 
-			format "%: % -> %\n" v boneIDs boneWeights
+			-- format "%: % -> %\n" v boneIDs boneWeights
 		)
 
 		for v = 1 to getNumVerts target do skinOps.ReplaceVertexWeights skinMod v (for b = 1 to pointBoneCount[v] collect boneIndexChain[pointBoneFirst[v] + b] + 1) (for b = 1 to pointBoneCount[v] collect boneWeightChain[pointBoneFirst[v] + b])

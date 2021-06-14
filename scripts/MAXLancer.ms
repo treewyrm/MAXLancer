@@ -19,6 +19,12 @@ global MAXLancer = (
 	local DeformableAttributes, DeformablePartHelper, DeformablePart, DeformableCompound
 	local SurfaceNodeHelper, SurfacePoint, SurfaceFace, SurfaceHull, SurfaceNode, SurfacePart, SurfaceLibrary
 	local AnimationFrame, AnimationChannel, AnimationJointMap, AnimationObjectMap, AnimationScript, AnimationLibrary
+	local ThornWriter
+
+	local FLCRC
+	local shaders
+	local initialized = false
+	local errorCount = 0
 
 	include "Common.ms"
 	include "INI.ms"
@@ -37,6 +43,7 @@ global MAXLancer = (
 	include "ConvexHull.ms"
 	include "Surface.ms"
 	include "Animation.ms"
+	include "Thorn.ms"
 
 	rollout MAXLancerLogRollout "MAXLancer Log" width:512 height:384 (
 		local logFont = dotNetObject "System.Drawing.Font" "Consolas" 9
@@ -110,63 +117,75 @@ global MAXLancer = (
 			
 			missing.count == 0 -- Returns true if all missing entries were found
 		),
-		
-		on create do listRollout = rollout LocateResourcesRollout "Missing Resources" width:224 height:284 (
-			editText filenameEdit "" pos:[8, 8] width:208 height:18 labelOnTop:true readOnly:true
-			label captionLabel "Missing Resources" pos:[8, 34] width:208 height:16
-			listbox resourcesList "" pos:[8, 56] width:208 height:14 readOnly:true
-			
-			button locateButton "Locate" pos:[8, 252] width:64 height:24
-			button ignoreButton "Ignore" pos:[80, 252] width:64 height:24
-			button cancelButton "Cancel" pos:[152, 252] width:64 height:24
-			
-			on locateButton pressed do (
-				local filenames = GetNetOpenFilenames caption:("Locate " + type) types:fileTypes multiple:true
-			
-				if filenames != undefined then (
-					for filename in filenames do appendIfUnique search filename
+
+		on create do (
+			listRollout = rollout LocateResourcesRollout "Missing Resources" width:224 height:316 (
+				edittext filenameEdit "" pos:[8,8] width:208 height:18 labelOnTop:true readOnly:true
+				label captionLabel "Missing Resources" pos:[8,34] width:208 height:16
+				listbox resourcesList "" pos:[8,56] width:208 height:14 readOnly:true
+						
+				button locateButton "Locate" pos:[8,252] width:100 height:24
+				button ignoreButton "Ignore" pos:[116,252] width:100 height:24
+				button searchButton "Auto-search" pos:[8,284] width:100 height:24
+				button cancelButton "Cancel" pos:[116,284] width:100 height:24
+				
+				on locateButton pressed do (
+					local filenames = GetNetOpenFilenames caption:("Locate " + type) types:fileTypes multiple:true
+				
+					if filenames != undefined then (
+						for filename in filenames do appendIfUnique search filename
+						DestroyDialog LocateResourcesRollout
+					)
+				)
+
+				on searchButton pressed do (
+					local entries = case classOf library of (
+						FLTextureLibrary:  MAXLancer.SearchTextures  missing displayProgress:false
+						FLMaterialLibrary: MAXLancer.SearchMaterials missing displayProgress:false
+						VMeshLibrary:      MAXLancer.SearchVMeshes   missing displayProgress:false
+					)
+
+					for entry in entries do for filename in entry do appendIfUnique search filename
 					DestroyDialog LocateResourcesRollout
 				)
-			)
 
-			on ignoreButton pressed do (
-				for i = missing.count to 1 by -1 where library.GeneratePlaceholder missing[i] != undefined do deleteItem missing i
-				DestroyDialog LocateResourcesRollout
-			)
+				on ignoreButton pressed do (
+					for i = missing.count to 1 by -1 where library.GeneratePlaceholder missing[i] != undefined do deleteItem missing i
+					DestroyDialog LocateResourcesRollout
+				)
 
-			on cancelButton pressed do (
-				search.count = 0
-				DestroyDialog LocateResourcesRollout
-			)
-			
-			on LocateResourcesRollout open do (
-				filenameEdit.text = filename
-				captionLabel.text = "Missing " + formattedPrint missing.count format:"u" + " " + type
-
-				ignoreButton.enabled = hasProperty library #GeneratePlaceholder and classOf library.GeneratePlaceholder == MAXScriptFunction
-				
-				local items = #()
-				for i = 1 to items.count = missing.count do items[i] = case classOf missing[i] of (
-					Integer: formattedPrint missing[i] format:"08X"
-					String:  missing[i]
-					default: missing[i] as string
+				on cancelButton pressed do (
+					search.count = 0
+					DestroyDialog LocateResourcesRollout
 				)
 				
-				resourcesList.items = items
-			)
+				on LocateResourcesRollout open do (
+					filenameEdit.text = filename
+					captionLabel.text = "Missing " + formattedPrint missing.count format:"u" + " " + type
 
-			-- Causes to stop on adding files
-			-- on LocateResourcesRollout close do search.count = 0
+					ignoreButton.enabled = hasProperty library #GeneratePlaceholder and classOf library.GeneratePlaceholder == MAXScriptFunction
+					
+					local items = #()
+					for i = 1 to items.count = missing.count do items[i] = case classOf missing[i] of (
+						Integer: formattedPrint missing[i] format:"08X"
+						String:  missing[i]
+						default: missing[i] as string
+					)
+					
+					resourcesList.items = items
+				)
+
+				-- Causes to stop on adding files
+				-- on LocateResourcesRollout close do search.count = 0
+			)
 		)
 	)
 
 	struct MAXLancerTools (
-		version = 0.7,
-		debug   = true,
-		config  = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
-		shaders,      -- ShaderLibrary
-
-		FLCRC,
+		version   = 0.8,
+		debug     = true,
+		config    = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
+		verbosity = 0,
 
 		CreateGUID,
 		FilterFiles,
@@ -188,51 +207,26 @@ global MAXLancer = (
 		GetSphereBalls,
 		SpherifyVector,
 
-		UTFEntry,
-		UTFHeader,
-		UTFReader,
-		UTFWriter,
-		VMeshLibrary,
 		VMeshAttributes,
-		FLMaterialMap,
-		FLMaterialLibrary,
-		FLMaterialAnimationLibrary,
-		FLTexture,
-		FLTextureLibrary,
-		SurfaceLibrary,
-		SurfaceNodeHelper,
-		AnimationLibrary,
-		HardpointHelper,
-		HardpointFixed,
-		HardpointRevolute,
-		HardpointPrismatic,
+		DeformableAttributes,
 		FixedJointController,
 		AxisJointController,
 		SphericJointController,
 		LooseJointController,
-		JointFixed,
-		JointRevolute,
-		JointPrismatic,
-		JointCylindric,
-		JointSpheric,
-		JointLoose,
-		CompoundIterator,
-		RigidPartHelper,
-		RigidPart,
-		RigidCompound,
-		DeformableAttributes,
-		DeformablePart,
-		DeformableCompound,
 
-		convexGenerator,
-		partSize,
-		hardpointSize,
-		exporterVersion,
+		convexGenerator = 1,
+		partSize        = 1.0,
+		hardpointSize   = 1.0,
+		exporterVersion = "",
 		surfaceMaterial = Standardmaterial name:"Hull" selfIllumAmount:100 diffuse:(color 255 0 0) opacity:10,
 
 		displayVertexLighting = true,
 		displayVertexColors   = true,
 		displayVertexAlpha    = true,
+
+		animationSamplingRate      = 30,
+		animationSamplingThreshold = 0.0,
+		animationSamplingOverwrite = false, -- When non-linear controller is being sampled this flag will cause sampled controller to be written over previous one
 
 		freelancerPath,   -- Path to Freelancer installation
 		texturesPath,     -- Path to textures
@@ -245,6 +239,57 @@ global MAXLancer = (
 			format "%\r\n" input to:MAXLancerLog
 			if MAXLancerLogRollout.inDialog then MAXLancerLogRollout.logBox.AppendText (input as string + "\r\n")
 		),
+
+		fn WriteError input = (
+			errorCount += 1
+			format "ERROR: %\r\n" input to:MAXLancerLog
+			if MAXLancerLogRollout.inDialog then MAXLancerLogRollout.logBox.AppendText ("ERROR: " + input as string + "\r\n")
+		),
+
+		fn CreateRigidPartHelper name = RigidPartHelper name:name,
+		fn IsRigidPartHelper target = isValidNode target and classOf target == RigidPartHelper,
+
+		fn CreateHardpointHelper name = HardpointHelper name:name,
+		fn IsHardpointHelper target = isValidNode target and classOf target == HardpointHelper,
+
+		fn CreateUTFReader = UTFReader(),
+		fn CreateUTFWriter = UTFWriter(),
+
+		fn CreateThornWriter = ThornWriter(),
+
+		fn CreateRigidCompound = RigidCompound(),
+		fn IsRigidCompound target = classOf target == RigidCompound,
+
+		fn CreateRigidPart = RigidPart(),
+		fn IsRigidPart target = classOf target == RigidPart,
+
+		fn CreateDeformableCompound = DeformableCompound(),
+		fn IsDeformableCompound target = classOf target == DeformableCompound,
+
+		fn CreateTextureLibrary = FLTextureLibrary(),
+		fn CreateMaterialLibrary = FLMaterialLibrary(),
+		fn CreateVMeshLibrary = VMeshLibrary(),
+		fn CreateAnimationLibrary = AnimationLibrary(),
+		fn CreateSurfaceLibrary = SurfaceLibrary(),
+
+		GetTextureType = FLTextureLibrary.GetTextureType,
+		GetPartSurfaces = SurfaceLibrary.GetPartSurfaces,
+		GetPartLevels = VMeshLibrary.GetPartLevels,
+		GetAnimations = AnimationLibrary.GetAnimations,
+
+		fn GetJointType joint = (
+			case classOf joint of (
+				JointFixed:     "Fixed"
+				JointRevolute:  "Revolute"
+				JointPrismatic: "Prismatic"
+				JointCylindric: "Cylindric"
+				JointSpheric:   "Spheric"
+				JointLoose:     "Loose"
+				default:        "Unknown"
+			)
+		),
+
+		fn GetShaders = shaders,
 
 		fn ShowLog = CreateDialog MAXLancerLogRollout style:#(#style_titlebar, #style_border, #style_sysmenu, #style_resizing),
 
@@ -440,39 +485,125 @@ global MAXLancer = (
 			result -- Return DeformableCompound
 		),
 
+		fn SearchResources names folderName location:freelancerPath masks:#("*") displayProgress:true = (
+			local files = FilterFiles location recursive:true directoryMask:"*" fileMasks:masks
+			local result = for n in names collect #()
+			local hashes = for n in names collect Hash n
+			local index = 0
+			local reader = UTFReader()
+
+			if displayProgress then progressStart "Seaching resources"
+
+			for filename in files do (
+				if getFileSize filename > 0 then (
+					try (
+						reader.Open filename
+						
+						if reader.OpenFolder folderName then (
+							for entryname in reader.GetFolders() where (index = findItem hashes (Hash entryname)) > 0 do
+								append result[index] filename
+							
+							reader.CloseFolder()
+						)
+					) catch (
+						WriteError (getCurrentException())
+					)
+
+					reader.Close()
+				)
+
+				index += 1
+				if displayProgress and not progressUpdate (100.0 * index / files.count) then break
+			)
+
+			if displayProgress then progressEnd()
+
+			result
+		),
+
+		-- Search for materials
+		fn SearchMaterials materials location:freelancerPath masks:#("*.mat") displayProgress:true = SearchResources materials "Material library" location:location masks:masks displayProgress:displayProgress,
+
+		-- Search for textures
+		fn SearchTextures textures location:freelancerPath masks:#("*.mat", "*.txm") displayProgress:true = SearchResources textures "Texture library" location:location masks:masks displayProgress:displayProgress,
+
+		-- Search for mesh buffers
+		fn SearchVMeshes meshes location:freelancerPath masks:#("*.mat", "*.txm") displayProgress:true = SearchResources meshes "VMeshLibrary" location:location masks:masks displayProgress:displayProgress,
+
+		fn Initialize = (
+			errorCount = 0
+			MAXLancerLog = StringStream ""
+
+			WriteLog "Initializing MAXLancer."
+			WriteLog ("Config path:        " + config.filename)
+
+			local crcFilename = pathConfig.normalizePath (pathConfig.appendPath (GetFilenamePath (getThisScriptFilename())) "FLCRC32.bin")
+
+			if doesFileExist crcFilename then WriteLog ("FLCRC32 path:       " + crcFilename)
+			else WriteError ("Missing hash table file: " + crcFilename)
+
+			-- Initialize FLCRC32 hash table
+			FLCRC = FLCRC32()
+			FLCRC.LoadFile crcFilename
+
+			if FLCRC.hashes.count != 0x100 then WriteError ("Invalid hash list: " + crcFilename)
+
+			exporterVersion  = config.LoadProperty "MAXLancer" "exporterVersion"  default:("MAXLancer Tools " + version as string)
+			temporaryPath    = config.LoadProperty "MAXLancer" "temporaryPath"    default:(pathConfig.appendPath (GetDir #temp) "MAXLancer")
+			texturesPath     = config.LoadProperty "MAXLancer" "texturesPath"     default:(pathConfig.appendPath (GetDir #image) "MAXLancer")
+			textureToolsPath = config.LoadProperty "MAXLancer" "textureToolsPath" default:("C:\\NVTT\\bin64\\")
+			shadersPath      = config.LoadProperty "MAXLancer" "shadersPath"      default:(pathConfig.appendPath (GetDir #renderassets) "MAXLancer")
+			freelancerPath   = config.LoadProperty "MAXLancer" "freelancerPath"   default:(GetFreelancerPath())
+			convexGenerator  = config.LoadProperty "MAXLancer" "convexGenerator"  default:1    type:#number
+			partSize         = config.LoadProperty "MAXLancer" "partSize"         default:0.25 type:#number
+			hardpointSize    = config.LoadProperty "MAXLancer" "hardpointSize"    default:0.25 type:#number
+
+			animationSamplingRate      = config.LoadProperty "MAXLancer" "animationSamplingRate"      default:30    type:#number
+			animationSamplingThreshold = config.LoadProperty "MAXLancer" "animationSamplingThreshold" default:0.0   type:#number
+			animationSamplingOverwrite = config.LoadProperty "MAXLancer" "animationSamplingOverwrite" default:false type:#boolean
+
+			WriteLog ("Temporary path:     " + temporaryPath)
+
+			if doesFileExist freelancerPath and getFileAttribute freelancerPath #directory then WriteLog ("Freelancer path:    " + freelancerPath)
+			else WriteError ("Missing freelancer path: " + freelancerPath)
+
+			if doesFileExist texturesPath and getFileAttribute texturesPath #directory then WriteLog ("Textures path:      " + texturesPath)
+			else WriteError ("Missing textures path: " + texturesPath)
+
+			if doesFileExist textureToolsPath and getFileAttribute textureToolsPath #directory then WriteLog ("Texture tools path: " + textureToolsPath)
+			else WriteError ("Missing texture tools path: " + textureToolsPath)
+
+			if doesFileExist shadersPath and getFileAttribute shadersPath #directory then (
+				WriteLog ("Shaders path:       " + shadersPath)
+
+				local shadersFilename = pathConfig.appendPath shadersPath "shaders.xml"
+
+				if classOf shaders == ShaderLibrary and shaders.filename == shadersFilename then (
+					WriteLog ("Shaders already loaded")
+				) else if doesFileExist shadersFilename then (
+					shaders = ShaderLibrary()
+					shaders.LoadFile shadersFilename
+				) else WriteError ("Missing shader config: " + shadersFilename)
+			) else WriteError ("Missing shaders path: " + shadersPath)
+
+			
+			if errorCount > 0 then (
+				messageBox ("One or more errors were detected at the startup. Details are provided in MAXLancer log.") title:"Errors detected"
+				ShowLog()
+				initialized = false
+			) else (
+				WriteLog "MAXLancer initialized."
+				initialized = true
+			)
+		),
+
 		on create do (
+
+			-- Incrase heap size to ~256MB to avoid slow automatic growth
 			if heapSize < 268435456 then heapSize = 268435456
 
 			WriteLog ("Heap: " + formattedPrint heapFree format:"u" + " of " + formattedPrint heapSize format:"u")
-			WriteLog ("Config path:        " + config.filename)
-
-			exporterVersion  = config.LoadProperty "MAXLancer" "exporterVersion" default:("MAXLancer Tools " + version as string)
-			temporaryPath    = config.LoadProperty "MAXLancer" "temporaryPath" default:(pathConfig.appendPath (GetDir #temp) "MAXLancer")
-			texturesPath     = config.LoadProperty "MAXLancer" "texturesPath" default:(pathConfig.appendPath (GetDir #image) "MAXLancer")
-			textureToolsPath = config.LoadProperty "MAXLancer" "textureToolsPath" default:("C:\\NVTT\\")
-			shadersPath      = config.LoadProperty "MAXLancer" "shadersPath" default:(pathConfig.appendPath (GetDir #renderassets) "MAXLancer")
-			freelancerPath   = config.LoadProperty "MAXLancer" "freelancerPath" default:(GetFreelancerPath())
-
-			if not doesFileExist textureToolsPath then messageBox "MAXLancer Texture Tools path is invalid. Please set correct path in Settings."
-			if not doesFileExist shadersPath then messageBox "MAXLancer Shaders path is invalid. Please set correct path in Settings."
-			
-			WriteLog ("Temporary path:     " + temporaryPath)
-			WriteLog ("Textures path:      " + texturesPath)
-			WriteLog ("Texture tools path: " + textureToolsPath)
-			WriteLog ("Shaders path:       " + shadersPath)
-			WriteLog ("Freelancer path:    " + freelancerPath)
-
-			convexGenerator = config.LoadProperty "MAXLancer" "convexGenerator" default:1    type:#number
-			partSize        = config.LoadProperty "MAXLancer" "partSize"        default:0.25 type:#number
-			hardpointSize   = config.LoadProperty "MAXLancer" "hardpointSize"   default:0.25 type:#number
-
-			shaders = ShaderLibrary()
-			shaders.LoadFile (pathConfig.appendPath shadersPath "shaders.xml")
-
-			FLCRC = FLCRC32()
-			FLCRC.LoadFile (pathConfig.normalizePath (pathConfig.appendPath (GetFilenamePath (getThisScriptFilename())) "FLCRC32.bin"))
-
-			WriteLog "MAXLancer initialized."
+			Initialize()
 		)
 	)
 
@@ -495,39 +626,10 @@ global MAXLancer = (
 		GetSphereBalls:             GetSphereBalls             \
 		SpherifyVector:             SpherifyVector             \
 		FindHardpoint:              FindHardpoint              \
-		UTFEntry:                   UTFEntry                   \
-		UTFHeader:                  UTFHeader                  \
-		UTFReader:                  UTFReader                  \
-		UTFWriter:                  UTFWriter                  \
-		VMeshLibrary:               VMeshLibrary               \
 		VMeshAttributes:            VMeshAttributes            \
-		FLMaterialMap:              FLMaterialMap              \
-		FLMaterialLibrary:          FLMaterialLibrary          \
-		FLMaterialAnimationLibrary: FLMaterialAnimationLibrary \
-		FLTexture:                  FLTexture                  \
-		FLTextureLibrary:           FLTextureLibrary           \
-		SurfaceLibrary:             SurfaceLibrary             \
-		AnimationLibrary:           AnimationLibrary           \
-		SurfaceNodeHelper:          SurfaceNodeHelper          \
-		HardpointHelper:            HardpointHelper            \
-		HardpointFixed:             HardpointFixed             \
-		HardpointRevolute:          HardpointRevolute          \
-		HardpointPrismatic:         HardpointPrismatic         \
 		FixedJointController:       FixedJointController       \
 		AxisJointController:        AxisJointController        \
 		SphericJointController:     SphericJointController     \
 		LooseJointController:       LooseJointController       \
-		JointFixed:                 JointFixed                 \
-		JointRevolute:              JointRevolute              \
-		JointPrismatic:             JointPrismatic             \
-		JointCylindric:             JointCylindric             \
-		JointSpheric:               JointSpheric               \
-		JointLoose:                 JointLoose                 \
-		CompoundIterator:           CompoundIterator           \
-		RigidPartHelper:            RigidPartHelper            \
-		RigidPart:                  RigidPart                  \
-		RigidCompound:              RigidCompound              \
-		DeformableAttributes:       DeformableAttributes       \
-		DeformablePart:             DeformablePart             \
-		DeformableCompound:         DeformableCompound
+		DeformableAttributes:       DeformableAttributes
 )

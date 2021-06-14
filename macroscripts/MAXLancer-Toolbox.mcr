@@ -4,39 +4,60 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 	local toolboxFloater      -- RolloutFloater
 	local toolboxOpen = false
 
-	rollout SettingsRollout "Settings" width:320 height:392 (
+	-- Apply property to MAXLancer instance and save into configuration file
+	fn ApplyProperty property value = (
+		if hasProperty MAXLancer property then setProperty MAXLancer property value else throw ("Missing MAXLancer property: " + property as string)
+		MAXLancer.config.SaveProperty "MAXLancer" (property as string) value
+		OK
+	)
 
-		groupbox sizeBox "Default helper size" pos:[8,8] width:148 height:64
-		label partLabel "Model part" pos:[16, 28] width:66
-		spinner partSize "" pos:[82, 28] width:66
+	rollout AnimationRollout "Animation" (
+		spinner samplingRateSpinner "Sampling rate (FPS):" range:[5,60,30] type:#integer
+		spinner samplingThresholdSpinner "Sampling threshold:" range:[0, 100, 0] type:#float -- MAXLancer.animationSamplingThreshold
+		checkbox overwriteCheckbox "Overwrite sampled controller" align:#center
+
+		fn Apply = (
+			ApplyProperty #animationSamplingRate      samplingRateSpinner.value
+			ApplyProperty #animationSamplingThreshold samplingThresholdSpinner.value
+			ApplyProperty #animationSamplingOverwrite overwriteCheckbox.checked
+			OK
+		)
+
+		on AnimationRollout open do (
+			samplingRateSpinner.value      = MAXLancer.animationSamplingRate
+			samplingThresholdSpinner.value = MAXLancer.animationSamplingThreshold
+			overwriteCheckbox.checked      = MAXLancer.animationSamplingOverwrite
+		)
+	)
+	
+	rollout HelpersRollout "Helpers" (
+		spinner partSizeSpinner "Model part size:" 
+		spinner hardpointSizeSpinner "Hardpoint size size:"
+
+		fn Apply = (
+			ApplyProperty #partSize      partSizeSpinner.value
+			ApplyProperty #hardpointSize hardpointSizeSpinner.value
+			OK
+		)
+
+		on HelpersRollout open do (
+			partSizeSpinner.value      = MAXLancer.partSize
+			hardpointSizeSpinner.value = MAXLancer.hardpointSize
+		)
+	)
+	
+	rollout ExternalPathsRollout "External Paths" (
+		edittext freelancerPathInput "Freelancer:" fieldWidth:272 labelOnTop:true
+		button freelancerPathBrowse "Browse" width:80 height:20 align:#right offset:[0, -24]
 		
-		label hardpointLabel "Hardpoint" pos:[16, 48] width:66
-		spinner hardpointSize "" pos:[82, 48] width:66
+		edittext texturesPathInput "Textures:" fieldWidth:272 labelOnTop:true
+		button texturesPathBrowse "Browse" width:80 height:20 align:#right offset:[0, -24]
 		
-		groupbox generatorBox "Convex hull generator" pos:[164,8] width:148 height:64
-		radiobuttons convexGenerator "" pos:[172, 28] labels:#("Nvidia PhysX", "Internal QuickHull") default:1 columns:1
-
-		groupbox exporterBox "Exporter version text" pos:[8,80] width:304 height:48
-		edittext exporterVersion "" labelOnTop:true pos:[16,100] width:288
-
-		groupbox freelancerBox "Freelancer" pos:[8,136] width:304 height:48
-		edittext freelancerPath "" labelOnTop:true pos:[16,156] width:216
-		button freelancerBrowse "Browse" pos:[240, 152] width:64 height:24
-
-		groupbox texturesBox "Textures" pos:[8,192] width:304 height:48
-		edittext texturesPath "" labelOnTop:true pos:[16,212] width:216
-		button texturesBrowse "Browse" pos:[240,208] width:64 height:24
-
-		groupbox textureToolsBox "Nvidia Texture Tools" pos:[8,248] width:304 height:48
-		edittext textureToolsPath "" labelOnTop:true pos:[16,268] width:216
-		button textureToolsBrowse "Browse" pos:[240,264] width:64 height:24
-
-		groupbox shadersBox "Shaders" pos:[8,304] width:304 height:48
-		edittext shadersPath "" labelOnTop:true pos:[16,324] width:216
-		button shadersBrowse "Browse" pos:[240, 320] width:64 height:24
-
-		button OKButton     "OK" pos:[128, 360] width:88 height:24
-		button cancelButton "Cancel" pos:[224, 360] width:88 height:24
+		edittext textureToolsPathInput "Nvidia Texture Tools:" fieldWidth:272 labelOnTop:true
+		button textureToolsPathBrowse "Browse" width:80 height:20 align:#right offset:[0, -24]
+		
+		edittext shadersPathInput "Shader:" fieldWidth:272 labelOnTop:true
+		button shadersPathBrowse "Browse" width:80 height:20 align:#right offset:[0, -24]
 
 		fn GetPathTo target caption = (
 			local filepath = getSavePath initialDir:target.text caption:caption
@@ -44,69 +65,85 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			OK
 		)
 
-		fn IsValidPath target = doesFileExist target and getFileAttribute target #directory
-		fn IsValidFile target = doesFileExist target and getFileAttribute target #normal
-
-		-- Apply property to MAXLancer instance and save into configuration file
-		fn ApplyProperty property value = (
-			setProperty MAXLancer property value
-			MAXLancer.config.SaveProperty "MAXLancer" (property as string) value
+		fn Apply = (
+			ApplyProperty #freelancerPath   freelancerPathInput.text
+			ApplyProperty #texturesPath     texturesPathInput.text
+			ApplyProperty #textureToolsPath textureToolsPathInput.text
+			ApplyProperty #shadersPath      shadersPathInput.text
 			OK
 		)
 
-		on OKButton pressed do if not IsValidPath freelancerPath.text then messageBox "Invalid Freelancer path."
-			else if not IsValidPath texturesPath.text then messageBox "Invalid textures path."
-			else if not IsValidPath textureToolsPath.text then messageBox "Invalid texture tools path."
-			else if not IsValidPath shadersPath.text then messageBox "Invalid shaders path."
-			else (
-				ApplyProperty #exporterVersion  exporterVersion.text
-				ApplyProperty #freelancerPath   freelancerPath.text
-				ApplyProperty #textureToolsPath textureToolsPath.text
-				ApplyProperty #texturesPath     texturesPath.text
-				ApplyProperty #shadersPath      shadersPath.text
-				ApplyProperty #partSize         partSize.value
-				ApplyProperty #hardpointSize    hardpointSize.value
-				ApplyProperty #convexGenerator  convexGenerator.state
+		on freelancerPathBrowse pressed do   GetPathTo freelancerPathInput   "Freelancer Folder:"
+		on texturesPathBrowse pressed do     GetPathTo texturesPathInput     "Texture Folder:"
+		on textureToolsPathBrowse pressed do GetPathTo textureToolsPathInput "Texture Tools Folder:"
+		on shadersPathBrowse pressed do      GetPathTo shadersPathInput      "Shaders Folder:"
 
-				messageBox "Settings applied."
+		on ExternalPathsRollout open do (
+			freelancerPathInput.text   = MAXLancer.freelancerPath
+			texturesPathInput.text     = MAXLancer.texturesPath
+			textureToolsPathInput.text = MAXLancer.textureToolsPath
+			shadersPathInput.text      = MAXLancer.shadersPath
+		)
+	)
+	
+	rollout MiscRollout "Misc" (
+		radiobuttons convexGeneratorType "Convex hull generator" labels:#("Nvidia PhysX", "Internal QuickHull") default:1 columns:1
+		edittext exporterVersionInput "Exporter version text:" labelOnTop:true
+		
+		fn Apply = (
+			ApplyProperty #convexGenerator convexGeneratorType.state
+			ApplyProperty #exporterVersion exporterVersionInput.text
+		)
+
+		on MiscRollout open do (
+			convexGeneratorType.state = MAXLancer.convexGenerator
+			exporterVersionInput.text = MAXLancer.exporterVersion		
+		)
+	)
+	
+	rollout SettingsRollout "Settings" width:416 height:448 (
+		subRollout categories width:400 height:400 pos:[8, 8]
+		button applyButton "Apply" width:120 height:24 pos:[160, 416]
+		button cancelButton "Cancel" width:120 height:24 pos:[288, 416]
+		
+		on SettingsRollout open do (
+			AddSubRollout categories ExternalPathsRollout rolledUp:true
+			AddSubRollout categories HelpersRollout rolledUp:true
+			AddSubRollout categories AnimationRollout rolledUp:true
+			AddSubRollout categories MiscRollout rolledUp:true
+		)
+
+		on applyButton pressed do (
+			for roll in categories.rollouts do roll.Apply()
+
+			if MAXLancer.Initialize() then (
+				messageBox "Settings applied." beep:false
 				DestroyDialog SettingsRollout
 			)
+		)
 
 		on cancelButton pressed do DestroyDialog SettingsRollout
-
-		on freelancerBrowse pressed do GetPathTo freelancerPath "Freelancer Folder:"
-		on shadersBrowse pressed do GetPathTo shadersPath "Shaders Folder:"
-		on texturesBrowse pressed do GetPathTo texturesPath "Texture Folder:"
-		on textureToolsBrowse pressed do GetPathTo textureToolsPath "Texture Tools Folder:"
-		on shadersBrowse pressed do GetPathTo shadersPath "Shaders Folder:"
-
-		on SettingsRollout open do (
-			partSize.value        = MAXLancer.partSize
-			hardpointSize.value   = MAXLancer.hardpointSize
-			convexGenerator.state = MAXLancer.convexGenerator
-			exporterVersion.text  = MAXLancer.exporterVersion
-			freelancerPath.text   = MAXLancer.freelancerPath
-			textureToolsPath.text = MAXLancer.textureToolsPath
-			texturesPath.text     = MAXLancer.texturesPath
-			shadersPath.text      = MAXLancer.shadersPath
-		)
 	)
 
 	rollout ToolboxRollout "MAXLancer Tools" (
 		button settingsButton "Settings"       width:128 height:24 align:#center
 		button logButton      "Message Log"    width:128 height:24 align:#center
 		button reloadButton   "Reload Scripts" width:128 height:24 align:#center
-		label versionLabel    ""               width:128 align:#center
 
-		on settingsButton pressed do CreateDialog SettingsRollout modal:true
+		label versionLabel "" width:128 align:#center
+
+		on settingsButton pressed do (
+			DestroyDialog SettingsRollout
+			CreateDialog SettingsRollout
+		)
 
 		on logButton pressed do MAXLancer.ShowLog()
 
-		on reloadButton pressed do try (
-			macros.run "MAXLancer" "ReloadScripts"
-			messageBox "MAXLancer scripts reloaded."
-		) catch (
-			messageBox (getCurrentException())
+		on reloadButton pressed do (
+			if queryBox "Reloading scripts can break motion controllers in active scene. Do you want to continue?" title:"Reloading MAXLancer scripts" beep:false then (
+				macros.run "MAXLancer" "ReloadScripts"
+				messageBox "MAXLancer scripts reloaded." beep:false
+			)
 		)
 
 		on RigidModelsRollout close do (
@@ -119,9 +156,10 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 
+	-- Rescales rigid models
 	rollout RescaleRollout "Rescale Model" (
-		spinner scaleSpinner "Scale" type:#float range:[0.001, 1000, 1]
-		button scaleButton "Apply" height:24 width:88
+		spinner scaleSpinner "Scale Factor" type:#float range:[0.001, 1000, 1]
+		button scaleButton "Apply" height:24 width:88 tooltip:"Rescale compound model with all sub-parts."
 
 		fn ScaleMesh target multiplier = (
 			in coordsys local for v = 1 to getNumVerts target do setVert target v (getVert target v * multiplier)
@@ -161,6 +199,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		on scaleButton pressed do if selection.count == 1 then ScaleModel selection[1] scaleSpinner.value
 	)
 
+	-- Object alignment tool (typically used to align hardpoints but limited to them)
 	rollout AlignmentToolRollout "Alignment Tool" (
 		local source -- Object to align (INode)
 		local target -- Alignment target (INode)
@@ -176,9 +215,14 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		button alignButton "Select" height:24 width:88
 		
 		tool AlignmentTool (
+
+			-- Remember where object was
 			on start do origin = source.transform
+
+			-- Reset object transform to origin when cancelling
 			on mouseAbort i do source.transform = origin
-				
+			
+			-- Align object to point of cursor intersection with target mesh
 			on freeMove do (
 				dir = case directionType.state of (
 					1:  x_axis
@@ -191,20 +235,14 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 				
 				hit = intersectRay target (mapScreenToWorldRay viewPoint)
 				
-				-- TODO: Fix resulting matrix being flipped
-
 				if hit == undefined then source.transform = origin else (
 					right  = normalize (cross hit.dir dir)
 					up     = -(normalize (cross right hit.dir))
 					result = matrix3 right up hit.dir hit.position
 
-					-- result = MatrixFromNormal hit.dir
-					-- result.row4 = hit.position
-
 					preTranslate result [0, 0, offsetSpinner.value]
 					
-					source.transform = result
-					-- source.dir = h.dir
+					source.transform = result * scaleMatrix origin.scalepart
 				)
 			)
 			
@@ -228,6 +266,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 	
+	-- Animation control (unused at the moment)
 	rollout AnimationListRollout "Animations" (
 		dotNetControl animationListView "System.Windows.Forms.ListView" width:160 height:120
 		
@@ -243,7 +282,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			
 			animationListView.columns.Add "Script Name" (animationListView.width - 4)
 			
-			local parts   = for item in selection where classOf item == MAXLancer.RigidPartHelper collect item
+			local parts   = for item in selection where MAXLancer.IsRigidPartHelper item collect item
 			local layers  = #{}
 			local items   = #()
 			local indices = #()
@@ -260,14 +299,15 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 
+	-- Rigid models utilities
 	rollout RigidModelsRollout "Rigid Models" (
 
 		spinner sizeSpinner "Helper Size:" range:[0,100,1] type:#float
-		button applyButton "Apply" width:88 height:24 align:#center
+		button applyButton "Apply" width:88 height:24 align:#center tooltip:"Adjust size for all selected rigid part helpers."
 		
 		label VMeshLabel "Level of Detail:" align:#left
-		button setVMeshButton   "Set"   width:76 height:24 across:2 align:#left
-		button unsetVMeshButton "Unset" width:76 height:24 align:#right
+		button setVMeshButton   "Set"   width:76 height:24 across:2 align:#left tooltip:"Marks selected editable meshes as exportable levels of detail."
+		button unsetVMeshButton "Unset" width:76 height:24 align:#right tooltip:"Unmarks selected editable meshes from exporting as levels of detail."
 		
 		group "Surfaces" (
 			button applySurfaceMaterialButton "Apply Material" width:128 height:24 align:#center
@@ -302,12 +342,13 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 
+	-- Flip coordinates in UV channels
 	rollout FlipTexturesRollout "Flip UVs" (
 
 		checkbox flipUCheckbox "Horizontal" across:2
 		checkbox flipVCheckbox "Vertical"
 
-		spinner mapSpinner "Map" range:[1, 99, 1] type:#integer
+		spinner mapSpinner "Map Channel" range:[1, 99, 1] type:#integer
 
 		button flipButton "Flip" width:76 height:24
 
@@ -336,6 +377,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 
+	-- Hardpoint tools and management
 	rollout HardpointsRollout "Hardpoints" (
 		local source
 		local target
@@ -356,7 +398,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 
 		button replaceButton "Replace Selection" width:128 height:24 align:#center
 
-		on mirrorButton pressed do for source in selection where classOf source == MAXLancer.HardpointHelper do (
+		on mirrorButton pressed do for source in selection where MAXLancer.IsHardpointHelper source do (
 			local root   = MAXLancer.GetRootFromHardpoint source
 			local target = copy source -- Create a copy of helper node
 			local matrix = if isValidNode root then root.transform else Matrix3 1
@@ -383,8 +425,8 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 
 		on applyButton pressed do MAXLancer.SetHardpointSize selection baseSizeSpinner.value arrowSizeSpinner.value
 
-		fn FilterSource hardpoint = classOf hardpoint == MAXLancer.HardpointHelper
-		fn FilterTarget hardpoint = classOf hardpoint == MAXLancer.HardpointHelper and hardpoint != source
+		fn FilterSource hardpoint = MAXLancer.IsHardpointHelper hardpoint
+		fn FilterTarget hardpoint = MAXLancer.IsHardpointHelper hardpoint and hardpoint != source
 
 		fn PickSource = (source = pickObject message:"Pick source hardpoint" count:1 filter:FilterSource) != undefined
 		fn PickTarget = (target = pickObject message:"Pick target hardpoint" count:1 filter:FilterTarget rubberBand:source.pos) != undefined
@@ -399,13 +441,19 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			if items.count == 0 then messageBox "No objects are selected." else
 			if queryBox ("Do you want to replace " + (formattedPrint items.count format:"u") + " objects with hardpoint helpers?") then
 				for item in items do (
-					replacement = MAXLancer.HardpointHelper name:item.name transform:item.transform baseSize:baseSizeSpinner.value arrowSize:arrowSizeSpinner.value
+					replacement = MAXLancer.CreateHardpointHelper item.name
+
+					replacement.transform = item.transform
+					replacement.baseSize  = baseSizeSpinner.value
+					replacement.arrowSize = arrowSizeSpinner.value
+
 					if item.parent != undefined then replacement.parent = item.parent
 					delete item
 				)
 		)
 	)
-	
+
+	-- MAXLancer shader control
 	rollout ShaderDisplayRollout "Shader Display" (
 		local indices = #()
 		
@@ -500,6 +548,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 
+	-- FLCRC32 simple calculator
 	rollout HashCalculatorRollout "FLCRC32" (
 		checkbox caseSensitiveCheckbox "Case Sensitive"
 		checkbox hexCheckbox "Hexadecimal Output" checked:true
@@ -512,6 +561,13 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 				outputText.text = if hexCheckbox.checked then formattedPrint crc format:"08X" else crc as string
 			)
 		)
+	)
+
+	-- Assisstance tools for system editing (copying coordinates and rotation angles)
+	rollout SystemToolsRollout "System Tools" (
+
+
+
 	)
 
 	fn OpenToolbox = (

@@ -232,8 +232,7 @@ struct UTFReader (
 	-- Open file as UTF
 	fn Open target = (
 		if not doesFileExist target then throw "File does not exist."
-
-		MAXLancer.WriteLog ("Opening UTF file: " + target)
+		if MAXLancer.verbosity > 2 then MAXLancer.WriteLog ("Opening UTF file: " + target)
 
 		directory = fopen target "r"
 		header.ReadStream directory

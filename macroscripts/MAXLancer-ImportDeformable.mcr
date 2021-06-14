@@ -51,8 +51,8 @@ macroscript ImportDeformable category:"MAXLancer" tooltip:"Import Deformable" bu
 			local result
 
 			-- Initialize libraries
-			materialLib = MAXLancer.FLMaterialLibrary()
-			textureLib  = MAXLancer.FLTextureLibrary()
+			materialLib = MAXLancer.CreateMaterialLibrary()
+			textureLib  = MAXLancer.CreateTextureLibrary()
 
 			-- Textures and materials must be embedded into .dfm file, Freelancer
 			-- provides no way to link to external material library.
@@ -99,23 +99,16 @@ macroscript ImportDeformable category:"MAXLancer" tooltip:"Import Deformable" bu
 			local part
 			local child
 			local root
+			local joint
 			local type
 			
 			while queue.count > 0 do (
 				parent = queue[queue.count].v1
 				part   = queue[queue.count].v2
 				queue.count = queue.count - 1
-				
-				type = case classOf (model.GetPartJoint part) of (
-					UndefinedClass: "Root"
-					(MAXLancer.JointFixed): "Fixed"
-					(MAXLancer.JointRevolute): "Revolute"
-					(MAXLancer.JointPrismatic): "Prismatic"
-					(MAXLancer.JointCylindric): "Cylindric"
-					(MAXLancer.JointSpheric): "Spheric"
-					(MAXLancer.JointLoose): "Loose"
-				)
-				
+
+				joint = model.GetPartJoint part
+				type = if joint == undefined then "Root" else MAXLancer.GetJointType joint
 				child = parent.Nodes.add (part.name + " (" + type + ")")
 
 				if parent == treeBox then root = child
@@ -154,7 +147,7 @@ macroscript ImportDeformable category:"MAXLancer" tooltip:"Import Deformable" bu
 			try (
 				filenameText.text = filename
 
-				model = MAXLancer.DeformableCompound()
+				model = MAXLancer.CreateDeformableCompound()
 				model.LoadFile filename
 
 				faceCount = model.GetFaceCount()

@@ -422,7 +422,7 @@ struct FLMaterialLibrary (
 	fn GetItem id = GetMaterial id, -- Alias for autoloader
 
 	fn AddMaterial target = (
-		local type = MAXLancer.shaders.GetTypeByMaterial target
+		local type = shaders.GetTypeByMaterial target
 		if type == undefined then throw "Target material has invalid class or technique."
 
 		local result = GetMaterial target.name
@@ -441,7 +441,7 @@ struct FLMaterialLibrary (
 	fn Parse target textureLib: = (
 		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
 		
-		local result = MAXLancer.shaders.CreateMaterial target.name (target.getCurrentTechniqueName())
+		local result = shaders.CreateMaterial target.name (target.getCurrentTechniqueName())
 		if result != undefined then result.Parse target textureLib:textureLib
 
 		result -- Return one of Material objects
@@ -465,7 +465,7 @@ struct FLMaterialLibrary (
 			if (mat = GetMaterial target) != undefined then (
 
 				-- Create new DxMaterial
-				if (result = MAXLancer.shaders.CreateShader mat) == undefined then throw "Material has no matching shader associated."
+				if (result = shaders.CreateShader mat) == undefined then throw "Material has no matching shader associated."
 
 				mat.Build result textureLib:textureLib
 
@@ -528,7 +528,7 @@ struct FLMaterialLibrary (
 
 				MAXLancer.WriteLog ("Reading material (" + type + "): " + filename)
 
-				item = MAXLancer.shaders.CreateMaterial filename type
+				item = shaders.CreateMaterial filename type
 				if item == undefined then throw ("Unsupported material type " + type + " in: " + filename)
 				
 				item.ReadUTF reader
@@ -553,7 +553,7 @@ struct FLMaterialLibrary (
 
 		if items.count > 0 and writer.OpenFolder "Material library" then (
 			for item in items where writer.OpenFolder item.name do (
-				type = MAXLancer.shaders.GetTypeByMaterial item
+				type = shaders.GetTypeByMaterial item
 
 				MAXLancer.WriteLog ("Writing material (" + type + "): " + item.name)
 				writer.WriteFileString "Type" type

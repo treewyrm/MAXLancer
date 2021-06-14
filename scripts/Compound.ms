@@ -516,9 +516,9 @@ fn SetCompoundJoint target joint = (
 fn GetCompoundJoint target approximation:10 root:false = (
 	if not isValidNode target then throw "Invalid joint target node object."
 
-	if target.objectOffsetPos != [0, 0, 0] then throw ("Part node \"" + target.name + "\" has invalid object offset position: " + target.objectOffsetPos)
-	if target.objectOffsetScale != [1, 1, 1] then throw ("Part node \"" + target.name + "\" has invalid object offset scale: " + target.objectOffsetScale)
-	if not isIdentity target.objectOffsetRot then throw ("Part node \"" + target.name + "\" has invalid object offset rotation: " + target.objectOffsetRot)
+	if target.objectOffsetPos != [0, 0, 0] then throw ("Part node \"" + target.name + "\" has invalid object offset position: " + target.objectOffsetPos as string)
+	if target.objectOffsetScale != [1, 1, 1] then throw ("Part node \"" + target.name + "\" has invalid object offset scale: " + target.objectOffsetScale as string)
+	if not isIdentity target.objectOffsetRot then throw ("Part node \"" + target.name + "\" has invalid object offset rotation: " + target.objectOffsetRot as string)
 
 	-- Create compound joint from controller
 	local controller = target.transform.controller

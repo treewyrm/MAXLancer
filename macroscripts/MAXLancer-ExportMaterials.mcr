@@ -32,15 +32,12 @@ macroscript ExportMaterials category:"MAXLancer" tooltip:"Export Materials" butt
 				#AmbientColor:    "Ambient Color"
 			)
 
-			displayValue = case classOf target of (
-				(MAXLancer.FLMaterialMap): target.filename
-				color: (
-					"R: " + formattedPrint (target.r / 255) format:".3f" + \
-					" G: " + formattedPrint (target.g / 255) format:".3f" + \
-					" B: " + formattedPrint (target.b / 255) format:".3f" + \
-					" A: " + formattedPrint (target.a / 255) format:".3f"
-				)
-			)
+			displayValue = if classOf target == color then (
+				"R: " + formattedPrint (target.r / 255) format:".3f" + \
+				" G: " + formattedPrint (target.g / 255) format:".3f" + \
+				" B: " + formattedPrint (target.b / 255) format:".3f" + \
+				" A: " + formattedPrint (target.a / 255) format:".3f"
+			) else if hasProperty target #filename then target.filename
 
 			OK
 		)
@@ -48,7 +45,7 @@ macroscript ExportMaterials category:"MAXLancer" tooltip:"Export Materials" butt
 		fn ListMaterial target parent = (
 			-- parent = parent.Nodes.add ("0x" + formattedPrint (MAXLancer.hash target.name) format:"08X" + ": " + target.name)
 			parent = parent.Nodes.add target.name
-			parent.Nodes.add ("Type: " + MAXLancer.shaders.GetTypeByMaterial target)
+			parent.Nodes.add ("Type: " + (MAXLancer.GetShaders()).GetTypeByMaterial target)
 
 			local propertyName
 			local propertyValue
@@ -77,7 +74,7 @@ macroscript ExportMaterials category:"MAXLancer" tooltip:"Export Materials" butt
 		)
 
 		fn ListTexture target parent = (
-			local type = case MAXLancer.FLTextureLibrary.GetTextureType target.external of (
+			local type = case MAXLancer.GetTextureType target.external of (
 				#DDS_RGBA:  "Uncompressed RGBA in DDS"
 				#DDS_DXT1:  "Compressed DXT1 in DDS"
 				#DDS_DXT1A: "Compressed DXT1a in DDS"
@@ -101,7 +98,7 @@ macroscript ExportMaterials category:"MAXLancer" tooltip:"Export Materials" butt
 			local writer
 
 			if filename != undefined then (
-				writer = MAXLancer.UTFWriter()
+				writer = MAXLancer.CreateUTFWriter()
 				writer.Open filename
 				
 				if materialsCheckbox.checked then materialLib.WriteUTF writer
@@ -120,8 +117,8 @@ macroscript ExportMaterials category:"MAXLancer" tooltip:"Export Materials" butt
 			treeBox.BackColor = MAXLancer.GetNetColorMan #window
 			treeBox.ForeColor = MAXLancer.GetNetColorMan #windowText
 			
-			textureLib  = MAXLancer.FLTextureLibrary()
-			materialLib = MAXLancer.FLMaterialLibrary()
+			textureLib  = MAXLancer.CreateTextureLibrary()
+			materialLib = MAXLancer.CreateMaterialLibrary()
 			
 			local parent
 			local queue = getCurrentSelection()

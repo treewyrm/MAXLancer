@@ -136,15 +136,21 @@ fn WriteQuaternion stream q = (
 
 -- Read quantized quat from stream (reconstructing w component)
 fn ReadQuaternion0x40 stream q = (
-	q.x =  ReadShort stream
-	q.z =  ReadShort stream
-	q.y = -ReadShort stream
+	local v = [0, 0, 0]
 
-	q.w = 0
-	q /= 32767.0
+	v.x =  ReadShort stream
+	v.z =  ReadShort stream
+	v.y = -ReadShort stream
+
+	v /= 32767.0
+
+	q.x = v.x
+	q.y = v.y
+	q.z = v.z
 
 	local s = q.x * q.x + q.y * q.y + q.z * q.z
-	if s < 1.0 then q.w = sqrt(1 - s)
+	q.w = if s < 1.0 then q.w = sqrt(1 - s) else 0
+
 	OK
 )
 
@@ -214,19 +220,21 @@ fn WriteQuaternionHarmonicMean stream q = (
 
 -- Read quantized quat from stream (half-angle)
 fn ReadQuaternionHalfAngle stream q = (
-	local n = [0, 0, 0]
+	local v = [0, 0, 0]
 
-	n.x =   ReadShort stream / 32767.0
-	n.z =   ReadShort stream / 32767.0
-	n.y = -(ReadShort stream / 32767.0)
+	v.x =  ReadShort stream
+	v.z =  ReadShort stream
+	v.y = -ReadShort stream
+	
+	v /= 32767.0
 
-	local d = dot n n
+	local d = dot v v
 	
-	n *= sqrt (2.0 - d)
+	v *= sqrt (2.0 - d)
 	
-	q.x = n.x
-	q.y = n.y
-	q.z = n.z
+	q.x = v.x
+	q.y = v.y
+	q.z = v.z
 	q.w = 1.0 - d
 
 	OK
@@ -494,7 +502,7 @@ fn GetPartParents root = (
 )
 
 -- Get array of nodes matching root class below in hierarchy
-fn GetPartChildren root deep:false = (
+fn GetPartChildren root deep:false attached:false = (
 	if not isValidNode root then throw "Invalid node object"
 
 	local result = #() -- Array of nodes
@@ -505,10 +513,13 @@ fn GetPartChildren root deep:false = (
 		parent = queue[queue.count]
 		queue.count = queue.count - 1
 
-		for child in parent.children where classOf child == classOf root do (
-			append result child
+		for child in parent.children do (
+			if attached and classOf child == HardpointHelper then append queue child
+			else if classOf child == classOf root then (
+				append result child
 
-			if deep and child.children.count > 0 then append queue child
+				if deep and child.children.count > 0 then append queue child
+			)
 		)
 	)
 
