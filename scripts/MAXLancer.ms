@@ -265,6 +265,7 @@ global MAXLancer = (
 
 		fn CreateRigidPart = RigidPart(),
 		fn IsRigidPart target = classOf target == RigidPart,
+		fn IsRigidLevel target = classOf target == Editable_mesh and (custAttributes.get target VMeshAttributes) != undefined,
 
 		fn CreateDeformableCompound = DeformableCompound(),
 		fn IsDeformableCompound target = classOf target == DeformableCompound,
@@ -359,6 +360,24 @@ global MAXLancer = (
 				1: GenerateConvexHullNVPX vertices maxVertices:maxVertices delIsoVerts:delIsoVerts
 				2: GenerateConvexHullQH vertices maxVertices:maxVertices delIsoVerts:delIsoVerts
 			)
+		),
+
+		fn GetModelLevels root = (
+			local result = #()
+			local queue  = #(root)
+			local target
+
+			while queue.count > 0 do (
+				target = queue[queue.count]
+				queue.count = queue.count - 1
+
+				for child in target.children do case of (
+					(IsRigidLevel child): append result child
+					(classOf child == classOf root): append queue child
+				)
+			)
+
+			result -- Return array of Editable_mesh with VMeshAttributes
 		),
 
 		-- Collect names of parts and hardpoints into hashmap

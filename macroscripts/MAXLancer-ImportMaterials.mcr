@@ -43,8 +43,12 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 					local materials = for id in names collect materialLib.Build id textureLib:textureLib useCache:false
 					local hashes = for m in materials collect MAXLancer.Hash m.name
 					local index
+					local slotIndex = activeMeditSlot
 
-					for i = activeMeditSlot to amin materials.count 24 do setMeditMaterial i materials[i]
+					for m = 1 to materials.count while slotIndex <= 24 do (
+						setMeditMaterial slotIndex materials[m]
+						slotIndex += 1
+					)
 
 					if overwriteCheckbox.checked then (
 						for target in targets do case classOf target.material of (
@@ -67,8 +71,13 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 		)
 
 		on ImportMaterialsRollout open do (
-			targets = for target in (if selection.count == 0 then objects else selection) where classOf target == Editable_mesh and custAttributes.get target MAXLancer.VMeshAttributes != undefined collect target
-			
+			targets = #()
+
+			if selection.count > 0 then for target in selection do case of (
+				(MAXLancer.IsRigidPartHelper target): join targets (MAXLancer.GetModelLevels target)
+				(MAXLancer.IsRigidLevel target): append targets target
+			)
+
 			local hashes    = #()
 			local materials = #()
 			local faces     = #()

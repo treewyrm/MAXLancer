@@ -30,14 +30,15 @@ macroscript ExportMaterials category:"MAXLancer" tooltip:"Export Materials" butt
 				#DiffuseColor:    "Diffuse Color"
 				#EmissionColor:   "Emission Color"
 				#AmbientColor:    "Ambient Color"
+				default:          undefined
 			)
-
-			displayValue = if classOf target == color then (
-				"R: " + formattedPrint (target.r / 255) format:".3f" + \
-				" G: " + formattedPrint (target.g / 255) format:".3f" + \
-				" B: " + formattedPrint (target.b / 255) format:".3f" + \
-				" A: " + formattedPrint (target.a / 255) format:".3f"
-			) else if hasProperty target #filename then target.filename
+			
+			if displayName == undefined then displayValue = undefined else displayValue = case of (
+				(classOf target == Color): formattedPrint (target / 0xFF) format:".2f"
+				(classOf target == String): target
+				(classOf target == Number): target as String
+				(hasProperty target #filename): target.filename
+			)
 
 			OK
 		)

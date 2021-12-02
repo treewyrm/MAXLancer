@@ -446,8 +446,8 @@ struct VMeshData (
 
 					-- Vertex diffuse color and transparency
 					if vertexFormat.colors then (
-						diffuseAlpha = 0xFF * if hasVertexAlpha then meshOp.getMapVert target -2 faceAlphas[i] else [1, 1, 1]
-						diffuseColor = 0xFF * if hasVertexColor then meshOp.getMapVert target 0 faceColors[i] else [1, 1, 1]
+						diffuseAlpha = 0xFF * (if hasVertexAlpha then meshOp.getMapVert target -2 faceAlphas[i] else [1, 1, 1])
+						diffuseColor = 0xFF * (if hasVertexColor then meshOp.getMapVert target 0 faceColors[i] else [1, 1, 1])
 						vertexColor  = color diffuseColor.x diffuseColor.y diffuseColor.z ((diffuseAlpha.x + diffuseAlpha.y + diffuseAlpha.z) / 3)
 						vertexHash   = MAXLancer.Hash vertexColor crc:vertexHash
 					)
