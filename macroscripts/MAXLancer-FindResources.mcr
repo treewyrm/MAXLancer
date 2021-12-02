@@ -9,8 +9,9 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 	rollout FindResourcesRollout "Find Resources" width:600 height:600 (
 		local logFont = dotNetObject "System.Drawing.Font" "Consolas" 9
 		
-		edittext searchInput "" pos:[8,12] width:456 height:16 labelOnTop:true align:#left
+		edittext searchInput "" pos:[8,12] width:456 labelOnTop:true align:#left
 		button searchButton "Search" pos:[472,8] width:120 height:24 align:#left
+		button findMeshCollisionsButton "Find Dupe Meshes" pos:[472, 32] width:120 heigh:24 align:#left
 		
 		checkbox materialLibrariesCheckbox "Material libraries" pos:[16,40] width:128 height:16 align:#left checked:true
 		checkbox textureLibrariesCheckbox "Texture libraries" pos:[144,40] width:128 height:16 align:#left
@@ -36,6 +37,80 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 			messagesBox.pos.y = 64
 			messagesBox.width = size.x - 16
 			messagesBox.height = size.y - messagesBox.pos.y - (size.y - statusLabel.pos.y + 8)
+		)
+
+		on findMeshCollisionsButton pressed do (
+			messagesBox.Clear()
+
+			local start = timeStamp()
+			local files = MAXLancer.FilterFiles MAXLancer.freelancerPath recursive:true directoryMask:"*" fileMasks:#("*.3db", "*.cmp")
+
+			WriteLine ("Scanning " + files.count as string + " files")
+			
+			searchProgress.Minimum = searchProgress.Value = 0
+			searchProgress.Maximum = files.count
+			searchProgress.Step = 1
+
+			local reader = MAXLancer.CreateUTFReader()
+			local filenames = #()
+			local vmeshes   = #()
+			local vmeshCRCs = #()
+
+			for filename in files do (
+				statusLabel.text = filename
+
+				try (
+					reader.Open filename
+
+					if reader.OpenFolder "VMeshLibrary" then (
+						local meshNames  = #() -- Array of strings
+						local meshHashes = #() -- Array of hashes
+						local index = 0
+
+						append filenames filename
+						append vmeshes   meshNames
+						append vmeshCRCs meshHashes
+
+						for entryname in reader.GetFolders() do (
+							local crc = MAXLancer.Hash entryname
+							local duplicates = #()
+
+							for i = 1 to filenames.count do (
+								index = findItem vmeshCRCs[i] crc
+
+								if index > 0 then append duplicates (DataPair i index)
+							)
+							
+							if duplicates.count > 0 then (
+								WriteLine ("Duplicate mesh (" + entryname + ") in (" + filename + ") found in:")
+								
+								for i = 1 to duplicates.count do (
+									local fileIndex = duplicates[i].v1
+									local meshIndex = duplicates[i].v2
+									
+									WriteLine("\t" + filenames[fileIndex]);
+								)
+							)
+
+							append meshNames entryname
+							append meshHashes crc
+
+							-- WriteLine ("Mesh (" + entryname + "): " + filename); entryNames[index] = entryname
+						)
+
+						reader.CloseFolder()
+					)
+
+					reader.Close()					
+				) catch (
+					WriteLine ("ERROR (" + filename + "): " + getCurrentException())
+					reader.Close()
+				)
+
+				searchProgress.PerformStep()
+			)
+
+			statusLabel.text = "Completed in " + formattedPrint (0.001 * (timeStamp() - start)) format:".2f" + " seconds."
 		)
 		
 		on searchButton pressed do (
@@ -103,11 +178,10 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 							
 						if usedByMesh then WriteLine (subject + " is used by mesh in: " + filename)
 					)
-
 					
 					reader.Close()					
 				) catch (
-					WriteLine ("ERROR: " + getCurrentException())
+					WriteLine ("ERROR (" + filename + "): " + getCurrentException())
 					reader.Close()
 				)
 

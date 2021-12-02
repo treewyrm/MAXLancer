@@ -20,15 +20,15 @@ struct UTFHeader (
 	unusedSpaceSize    = 0,          -- Unused block size in bytes
 	filetime           = 0,          -- Windows 64-bit filetime
 
-	fn ReadStream stream = (
-		if ReadLong stream != signature then throw "Invalid UTF header."
-		if ReadLong stream != version then throw "Invalid UTF version."
+	fn ReadStream stream filename = (
+		if ReadLong stream != signature then throw ("Invalid UTF header in " + filename)
+		if ReadLong stream != version then throw ("Invalid UTF version in " + filename)
 
 		directoryOffset   = ReadLong stream #unsigned
 		directorySize     = ReadLong stream #unsigned
 		unusedEntryOffset = ReadLong stream #unsigned
 		
-		if ReadLong stream != entrySize then throw "Invalid UTF entry size."
+		if ReadLong stream != entrySize then throw ("Invalid UTF entry size in " + filename)
 
 		namesOffset        = ReadLong stream #unsigned
 		namesSizeAllocated = ReadLong stream #unsigned
@@ -235,7 +235,7 @@ struct UTFReader (
 		if MAXLancer.verbosity > 2 then MAXLancer.WriteLog ("Opening UTF file: " + target)
 
 		directory = fopen target "r"
-		header.ReadStream directory
+		header.ReadStream directory target
 
 		names = fopen target "r"
 		data  = fopen target "r"

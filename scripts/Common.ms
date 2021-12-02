@@ -761,3 +761,38 @@ fn GetSphereBalls count sizeMin:0.1 sizeMax:1.0 fraction:1.0 tryLimit:100 = (
 	result -- Return array of Point4
 )
 
+-- Generate wireframe Line object from visible edges of Editable mesh
+fn GenerateWireframe target = if classOf target == Editable_mesh then (
+	local result = Line steps:0
+		
+	local faceVertices  -- Point3 of face indices
+	local startPosition -- Point3 line start
+	local stopPosition  -- Point3 line end
+	local hashes = #()  -- Array of Number (hash from dual points)
+	local startHash     -- Number (hash of start to end)
+	local stopHash      -- Number (hash of end to start)
+	local splineIndex   -- Number
+
+	for f = 1 to getNumFaces target do (
+		faceVertices = getFace target f
+
+		for i = 1 to 3 where getEdgeVis target f i do (
+			startPosition = getVert target faceVertices[i]
+			stopPosition  = getVert target faceVertices[(if i < 3 then i + 1 else 1)]
+			
+			startHash = MAXLancer.Hash stopPosition crc:(MAXLancer.Hash startPosition)
+			stopHash  = MAXLancer.Hash startPosition crc:(MAXLancer.Hash stopPosition)
+				
+			if appendIfUnique lineHashes startHash and appendIfUnique lineHashes stopHash then (
+				splineIndex = addNewSpline result
+				
+				addKnot result splineIndex #corner #line startPosition
+				addKnot result splineIndex #corner #line stopPosition
+			)
+		)
+	)
+	
+	updateShape result
+	AddToLayer "Wireframes" result
+	result -- Return Line
+)

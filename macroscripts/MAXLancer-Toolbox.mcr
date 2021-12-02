@@ -295,31 +295,85 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			)
 			
 			animationListView.items.AddRange items
-			animationListView.Update()				
+			animationListView.Update()
 		)
 	)
-
+	
 	-- Rigid models utilities
 	rollout RigidModelsRollout "Rigid Models" (
 
 		spinner sizeSpinner "Helper Size:" range:[0,100,1] type:#float
-		button applyButton "Apply" width:88 height:24 align:#center tooltip:"Adjust size for all selected rigid part helpers."
+		button applySizeButton "Apply" width:88 height:24 align:#center tooltip:"Adjust size for all selected rigid part helpers."
 		
-		label VMeshLabel "Level of Detail:" align:#left
-		button setVMeshButton   "Set"   width:76 height:24 across:2 align:#left tooltip:"Marks selected editable meshes as exportable levels of detail."
-		button unsetVMeshButton "Unset" width:76 height:24 align:#right tooltip:"Unmarks selected editable meshes from exporting as levels of detail."
-		
-		group "Surfaces" (
-			button applySurfaceMaterialButton "Apply Material" width:128 height:24 align:#center
-			button convertMeshesToHullsButton "Convert Meshes" width:128 height:24 align:#center
-			checkbox deleteMeshesCheckbox "Auto-Delete Meshes"
-			checkbox mergeHullsCheckbox "Merge Hulls"
+		-- label VMeshLabel "Level of Detail:" align:#left
+		-- button setVMeshButton   "Set"   width:76 height:24 across:2 align:#left tooltip:"Marks selected editable meshes as exportable levels of detail."
+		-- button unsetVMeshButton "Unset" width:76 height:24 align:#right tooltip:"Unmarks selected editable meshes from exporting as levels of detail."
+
+		group "Levels of Detail" (
+			
+			spinner levelSpinner "Level:" range:[0,12,0] type:#integer tooltip:"Sets this level to all selected meshes."
+			spinner distanceSpinner "View Distance:" range:[0, 3.4e38, 100] type:#float tooltip:"Sets this view distance to all selected meshes."
+			
+			checkbox resetXFormCheckbox "Reset Transform" checked:false tooltip:"Applies and collapses XForm Reset to meshes."
+			checkbox centerPivotCheckbox "Center Pivot" checked:false tooltip:"Moves mesh pivot to bounding box center."
+
+			button applyLevelsButton "Apply" width:76 height:24 align:#left across:2 tooltip:"Applies level of detail attributes to selected editable meshes."
+			button clearLevelsButton "Clear" width:76 height:24 align:#right tooltip:"Removes level of detail attributes from selected editable meshes."
+			button generateWireframeButton "Generate Wireframes" width:128 height:24 align:#center tooltip:"Generates wireframes for selected editable meshes."
 		)
 
-		on applyButton pressed do MAXLancer.SetRigidPartSize selection sizeSpinner.value
+		group "Collision Surfaces" (
+			button applySurfaceMaterialButton "Apply Material" width:128 height:24 align:#center tooltip:"Applies default transparent red material to meshes. Doesn't affect anything."
+			button convertMeshesToHullsButton "Generate Surfaces" width:128 height:24 align:#center tooltip:"Creates convex hulls from selected meshes."
+			checkbox deleteMeshesCheckbox "Auto-Delete Meshes" tooltip:"Removes original meshes from which convex hulls were generated."
+			checkbox mergeHullsCheckbox "Merge Hulls" tooltip:"Merges hulls into single mesh."
+		)
 
-		on setVMeshButton pressed do MAXLancer.SetVMesh selection
-		on unsetVMeshButton pressed do MAXLancer.UnsetVMesh selection
+		on generateWireframeButton pressed do (
+			local wireframe
+
+			for target in selection where classOf target == Editable_mesh do (
+				wireframe = MAXLancer.GenerateWireframe target
+
+				if numSplines wireframe == 0 then delete wireframe else (
+					wireframe.wireColor = target.wireColor
+					wireframe.parent = target
+					wireframe.name = target.name + "_Wireframe"
+				)
+			)
+		)
+
+		on applySizeButton pressed do MAXLancer.SetRigidPartSize selection sizeSpinner.value
+
+		on applyLevelsButton pressed do (
+			local targets = for target in selection where classOf target == Editable_mesh collect target
+
+			if resetXFormCheckbox.checked then (
+				
+				-- Remove meshes from hierarchy
+				for target in targets where not MAXLancer.IsRigidPartHelper target.parent do target.parent = undefined
+				
+				ResetXForm targets
+				collapseStack targets
+			)
+			
+			if centerPivotCheckbox.checked then CenterPivot targets 
+
+			-- Set LODs
+			MAXLancer.SetVMesh targets
+
+			for target in targets do (
+				target.level = levelSpinner.value
+				target.range = distanceSpinner.value
+			)
+			
+			OK
+		)
+		
+		on clearLevelsButton pressed do MAXLancer.UnsetVMesh selection
+
+		-- on setVMeshButton pressed do MAXLancer.SetVMesh selection
+		-- on unsetVMeshButton pressed do MAXLancer.UnsetVMesh selection
 
 		on applySurfaceMaterialButton pressed do for target in selection where classOf target == Editable_mesh do target.material = MAXLancer.surfaceMaterial
 
@@ -396,7 +450,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			button attachButton "Attach" width:76 height:24 align:#right tooltip:"Attaches source object hierarchy to source hardpoint to target hardpoint"
 		)
 
-		button replaceButton "Replace Selection" width:128 height:24 align:#center
+		button replaceButton "Convert to Hardpoints" width:128 height:24 align:#center tooltip:"Replaces selected objects with hardpoint helpers while retaining original transform and parent node"
 
 		on mirrorButton pressed do for source in selection where MAXLancer.IsHardpointHelper source do (
 			local root   = MAXLancer.GetRootFromHardpoint source

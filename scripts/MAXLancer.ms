@@ -18,6 +18,7 @@ global MAXLancer = (
 	local RigidPartHelper, RigidPart, RigidCompound
 	local DeformableAttributes, DeformablePartHelper, DeformablePart, DeformableCompound
 	local SurfaceNodeHelper, SurfacePoint, SurfaceFace, SurfaceHull, SurfaceNode, SurfacePart, SurfaceLibrary
+	local SimpleSurfaceLibrary
 	local AnimationFrame, AnimationChannel, AnimationJointMap, AnimationObjectMap, AnimationScript, AnimationLibrary
 	local ThornWriter
 
@@ -42,6 +43,7 @@ global MAXLancer = (
 	include "Deformable.ms"
 	include "ConvexHull.ms"
 	include "Surface.ms"
+	include "SimpleSurface.ms"
 	include "Animation.ms"
 	include "Thorn.ms"
 
@@ -182,7 +184,7 @@ global MAXLancer = (
 	)
 
 	struct MAXLancerTools (
-		version   = 0.8,
+		version   = 0.9,
 		debug     = true,
 		config    = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
 		verbosity = 0,
@@ -206,6 +208,7 @@ global MAXLancer = (
 		GetSphereRandomPoint,
 		GetSphereBalls,
 		SpherifyVector,
+		GenerateWireframe,
 
 		VMeshAttributes,
 		DeformableAttributes,
@@ -271,6 +274,7 @@ global MAXLancer = (
 		fn CreateVMeshLibrary = VMeshLibrary(),
 		fn CreateAnimationLibrary = AnimationLibrary(),
 		fn CreateSurfaceLibrary = SurfaceLibrary(),
+		fn CreateSimpleSurfaceLibrary = SimpleSurfaceLibrary(),
 
 		GetTextureType = FLTextureLibrary.GetTextureType,
 		GetPartSurfaces = SurfaceLibrary.GetPartSurfaces,
@@ -489,10 +493,15 @@ global MAXLancer = (
 			local files = FilterFiles location recursive:true directoryMask:"*" fileMasks:masks
 			local result = for n in names collect #()
 			local hashes = for n in names collect Hash n
+			local matches = #()
 			local index = 0
 			local reader = UTFReader()
 
+			matches.count = names.count
+
 			if displayProgress then progressStart "Seaching resources"
+
+			WriteLog ("Auto-search (" + folderName + "): " + location)
 
 			for filename in files do (
 				if getFileSize filename > 0 then (
@@ -500,8 +509,10 @@ global MAXLancer = (
 						reader.Open filename
 						
 						if reader.OpenFolder folderName then (
-							for entryname in reader.GetFolders() where (index = findItem hashes (Hash entryname)) > 0 do
+							for entryname in reader.GetFolders() where (index = findItem hashes (Hash entryname)) > 0 do (
+								matches[index] = entryname
 								append result[index] filename
+							)
 							
 							reader.CloseFolder()
 						)
@@ -517,6 +528,12 @@ global MAXLancer = (
 			)
 
 			if displayProgress then progressEnd()
+
+			for index = 1 to names.count where result[index].count > 0 and classOf matches[index] == String do (
+				WriteLog ((formattedPrint index format:"02u") + ": " + matches[index])
+
+				for filename in result[index] do WriteLog("  " + substring filename (location.count + 2) -1)
+			)
 
 			result
 		),
@@ -625,6 +642,7 @@ global MAXLancer = (
 		GetSphereRandomPoint:       GetSphereRandomPoint       \
 		GetSphereBalls:             GetSphereBalls             \
 		SpherifyVector:             SpherifyVector             \
+		GenerateWireframe:          GenerateWireframe          \
 		FindHardpoint:              FindHardpoint              \
 		VMeshAttributes:            VMeshAttributes            \
 		FixedJointController:       FixedJointController       \

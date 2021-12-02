@@ -44,7 +44,7 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 					local hashes = for m in materials collect MAXLancer.Hash m.name
 					local index
 
-					for i = 1 to amin materials.count 24 do setMeditMaterial i materials[i]
+					for i = activeMeditSlot to amin materials.count 24 do setMeditMaterial i materials[i]
 
 					if overwriteCheckbox.checked then (
 						for target in targets do case classOf target.material of (

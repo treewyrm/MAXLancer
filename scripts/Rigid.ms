@@ -245,7 +245,7 @@ struct RigidCompound (
 		local bBox = #() -- Bounding box vertices (Array of Point3)
 
 		while iterator.Next() do (
-			if iterator.current.child.levels.count > 0 then continue 
+			if iterator.current.child.levels.count == 0 then continue 
 
 			-- Collect min/max in part space
 			iterator.current.child.GetBoundaries &vMin &vMax &vCenter &vRadius

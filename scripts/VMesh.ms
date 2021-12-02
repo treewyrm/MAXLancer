@@ -23,13 +23,13 @@ VMeshAttributes = attributes "Level of Detail" attribID:#(0x4C58414D, 0x6873656D
 		colors     type:#boolean animatable:false ui:colorsCheckbox     default:false
 		maps       type:#integer animatable:false ui:mapsSpinner        default:1
 		filename   type:#string  animatable:false ui:filenameText       default:""
-		wireframe  type:#boolean animatable:false ui:wireframeCheckbox  default:false
+		-- wireframe  type:#boolean animatable:false ui:wireframeCheckbox  default:false
 	)
 
 	rollout VMeshRollout "Level of Detail" (
 		dropdownlist modeList "Primitive Type:" items:#("Points", "Line List", "Line Strip", "Triangle List", "Triangle Strip", "Triangle Fan")
 
-		checkbox wireframeCheckbox "Visible Edges to Wireframe" tooltip:"Use mesh visible edges to generate HUD wireframe."
+		-- checkbox wireframeCheckbox "Visible Edges to Wireframe" tooltip:"Use mesh visible edges to generate HUD wireframe."
 
 		group "Level of Detail" (
 			spinner levelSpinner "Detail Level:" type:#integer range:[0, 9, 0] tooltip:"Level of detail (LOD)."
@@ -309,9 +309,15 @@ struct VMeshData (
 	),
 
 	-- Parse target Editable_mesh as triangle list into VMeshData and produce VMeshRef
-	fn Parse target &wireData materialLib: textureLib: progress: epsilon:0.01 = (
+	fn Parse target materialLib: textureLib: progress: epsilon:0.01 = (
 		if classOf target != Editable_mesh then throw "Invalid Editable_mesh object"
 		if (custAttributes.get target VMeshAttributes) == undefined then throw "Editable_mesh does not have VMeshAttributes"
+
+		local hasVertexColor = meshOp.getMapSupport target 0
+		local hasVertexAlpha = meshOp.getMapSupport target -2
+		local hasVertexMaps  = #{}
+
+		for m = 1 to vertexFormat.maps do hasVertexMaps[m] = meshOp.getMapSupport target m
 
 		local meshRef = VMeshRef meshID:(MAXLancer.hash filename) groupStart:groups.count indexStart:indices.count vertexStart:vertexCount radius:0.0 minimum:[3.4e38, 3.4e38, 3.4e38] maximum:[-3.4e38, -3.4e38, -3.4e38]
 
@@ -356,7 +362,6 @@ struct VMeshData (
 
 		local meshGroup      -- Current mesh group (VMeshGroup)
 		local faceVertices   -- Face vertices in Editable_mesh
-		local faceIndices    -- Face indices in VMeshData relative to VMeshRef.vertexStart
 		local faceRNormals   -- Face vertices normals (smoothing groups)
 		local faceVNormals   -- Face vertices normals (per-vertex)
 		local faceColors     -- Face vertices color (channel 0)
@@ -371,15 +376,13 @@ struct VMeshData (
 		local vertexColor    -- Vertex diffuse (Color)
 		local vertexMaps     -- Vertex UVs (array of Point3)
 		local vertexIndex    -- Vertex index in VMeshData relative to VMeshGroup.vertexStart + VMeshRef.vertexStart
-		local vertexMatch    -- Boolean
+		local vertexHash     -- Number
 
-		local groupPositions -- Unique Point3 positions within VMeshGroups (Array of Point3)
-		local groupIndices   -- Vertices in VMeshData matching position (Array of BitArray)
-		local groupIndex     -- Current index in groupPositions and groupIndices
+		-- local groupPositions -- Unique Point3 positions within VMeshGroups (Array of Point3)
+		-- local groupIndices   -- Vertices in VMeshData matching position (Array of BitArray)
+		-- local groupIndex     -- Current index in groupPositions and groupIndices
 
-		local faceVisEdges
-		local visEdges = #() -- Array of Point2 for editable mesh indices of visible edges
-		local edges = #()    -- Array of Point2 for vertex buffer indices of visible edges
+		local groupHashes = #() -- Array of Number
 
 		-- Process material faces into mesh groups
 		in coordsys target.parent for m = 1 to materials.count do (
@@ -394,35 +397,29 @@ struct VMeshData (
 			vertexMaps = #()
 
 			-- Initialize group position vectors and matching indices
-			groupPositions = #()
-			groupIndices   = #()
+			-- groupPositions = #()
+			-- groupIndices   = #()
+
+			groupHashes.count = 0
 
 			MAXLancer.WriteLog ("Mesh group " + formattedPrint m format:"u" + ": " + materials[m].name  + " (" + formatID meshGroup.materialID + ") with " + formattedPrint faces[m].numberSet + " faces")
 			
 			-- Process faces into index and vertex buffers
 			for f in faces[m] do (
 				faceVertices = getFace target f
-				faceIndices  = [0, 0, 0]
 				faceRNormals = meshOp.getFaceRNormals target f
 				faceVNormals = for i = 1 to 3 collect getNormal target faceVertices[i]
 				faceAlphas   = if vertexFormat.colors then meshOp.getMapFace target -2 f
 				faceColors   = if vertexFormat.colors then meshOp.getMapFace target 0 f
 				faceMaps     = for m = 1 to vertexFormat.maps collect meshop.getMapFace target m f
-				faceVisEdges = [0, 0, 0]
 
 				-- Face verteices/edges
 				for i = 1 to 3 do (
 					if indices.count >= 0xFFFF then throw "Too many VMeshData indices"
-					
-					-- Edge is visible and not duplicate
-					if target.wireframe and getEdgeVis target f i then case i of (
-						1: faceVisEdges.x = if appendIfUnique visEdges [faceVertices.x, faceVertices.y] and appendIfUnique visEdges [faceVertices.y, faceVertices.x] then 1 else 0
-						2: faceVisEdges.y = if appendIfUnique visEdges [faceVertices.y, faceVertices.z] and appendIfUnique visEdges [faceVertices.z, faceVertices.y] then 1 else 0
-						3: faceVisEdges.z = if appendIfUnique visEdges [faceVertices.z, faceVertices.x] and appendIfUnique visEdges [faceVertices.x, faceVertices.z] then 1 else 0
-					)
 
 					-- Vertex position
 					vertexPosition = getVert target faceVertices[i]
+					vertexHash = MAXLancer.Hash vertexPosition 
 
 					-- Update VMeshRef bounding box
 					meshRef.minimum.x = amin meshRef.minimum.x vertexPosition.x
@@ -437,22 +434,31 @@ struct VMeshData (
 					meshRef.radius = amax meshRef.radius (distance meshRef.center vertexPosition)
 
 					-- Vertex normal
-					if vertexFormat.normals then vertexNormal = case target.normals of (
-						2: normalsMod.GetNormal (normalsMod.GetNormalID f i)
-						3: faceRNormals[i]
-						4: faceVNormals[i]
+					if vertexFormat.normals then (
+						vertexNormal = case target.normals of (
+							2: normalsMod.GetNormal (normalsMod.GetNormalID f i)
+							3: faceRNormals[i]
+							4: faceVNormals[i]
+						)
+
+						vertexHash = MAXLancer.Hash vertexNormal crc:vertexHash
 					)
 
 					-- Vertex diffuse color and transparency
 					if vertexFormat.colors then (
-						diffuseAlpha = 0xFF * meshOp.getMapVert target -2 faceAlphas[i]
-						diffuseColor = 0xFF * meshOp.getMapVert target 0 faceColors[i]
+						diffuseAlpha = 0xFF * if hasVertexAlpha then meshOp.getMapVert target -2 faceAlphas[i] else [1, 1, 1]
+						diffuseColor = 0xFF * if hasVertexColor then meshOp.getMapVert target 0 faceColors[i] else [1, 1, 1]
 						vertexColor  = color diffuseColor.x diffuseColor.y diffuseColor.z ((diffuseAlpha.x + diffuseAlpha.y + diffuseAlpha.z) / 3)
+						vertexHash   = MAXLancer.Hash vertexColor crc:vertexHash
 					)
 					
 					-- Vertex texture maps
-					for m = 1 to faceMaps.count do vertexMaps[m] = meshOp.getMapVert target m faceMaps[m][i]
-
+					for m = 1 to faceMaps.count do (
+						vertexMaps[m] = if hasVertexMaps[m] then meshOp.getMapVert target m faceMaps[m][i] else [0, 0, 0]
+						vertexHash    = MAXLancer.Hash vertexMaps[m] crc:vertexHash
+					)
+					
+					/*
 					-- Find another vertex in group by position
 					groupIndex = findItem groupPositions vertexPosition
 
@@ -474,6 +480,9 @@ struct VMeshData (
 
 						for m = 1 to vertexFormat.maps while vertexIndex > 0 where maps[m][v] != vertexMaps[m] do vertexIndex = 0					
 					)
+					*/
+
+					vertexIndex = findItem groupHashes vertexHash
 
 					-- When no match was found add vertex attribute to buffer
 					if vertexIndex == 0 then (
@@ -488,19 +497,24 @@ struct VMeshData (
 						for m = 1 to vertexFormat.maps do maps[m][vertexIndex] = vertexMaps[m]
 
 						meshRef.vertexCount += 1 -- Increment number of unique vertices in VMeshRef
-					)
+
+						-- Remove this in case I would need to revert back to groupPositions/groupIndices
+						vertexIndex -= meshRef.vertexStart + meshGroup.vertexStart + 1
+
+						append groupHashes vertexHash
+					) else vertexIndex -= 1 -- Remove this in case I would need to revert back to groupPositions/groupIndices
 
 					-- Populate group index reference for buffered vertex
-					groupIndices[groupIndex][vertexIndex] = true
+					-- groupIndices[groupIndex][vertexIndex] = true
 
 					-- Vertex index in VMeshData relative to VMeshRef.vertexStart
-					vertexIndex -= meshRef.vertexStart + meshGroup.vertexStart + 1
+					-- vertexIndex -= meshRef.vertexStart + meshGroup.vertexStart + 1
 
 					-- Push vertex data into VMeshData and get associated vertexIndex within VMeshGroup (!)
 					append indices vertexIndex
 
 					-- Face indices relative to VMeshRef
-					faceIndices[i] = meshGroup.vertexStart + vertexIndex
+					-- faceIndices[i] = meshGroup.vertexStart + vertexIndex
 
 					-- Add index to element list and increment element counts
 					meshGroup.indexCount += 1
@@ -508,13 +522,6 @@ struct VMeshData (
 				)
 
 				meshGroup.vertexEnd = meshRef.vertexCount - 1
-
-				-- Append pair of indices edge visibility
-				if target.wireframe then (
-					if faceVisEdges.x > 0 then append edges [faceIndices.x, faceIndices.y]
-					if faceVisEdges.y > 0 then append edges [faceIndices.y, faceIndices.z]
-					if faceVisEdges.z > 0 then append edges [faceIndices.z, faceIndices.x]
-				)
 
 				if classOf progress == MAXScriptFunction then progress 3
 			)
@@ -538,19 +545,6 @@ struct VMeshData (
 
 		-- Remove normal modifier
 		if vertexFormat.normals and target.normals == 2 then deleteModifier target normalsMod
-	
-		-- Build VWireData from collected edges
-		if wireData == undefined and edges.count > 0 and target.wireframe then (
-			wireData = VWireData meshID:meshRef.meshID vertexStart:meshRef.vertexStart
-			
-			MAXLancer.WriteLog ("Generating wireframe from " + formattedPrint edges.count format:"u" + " edges")
-			
-			local indexCount = wireData.AppendLines edges
-			
-			MAXLancer.WriteLog ("Added " + formattedPrint indexCount format:"u" + " wireframe indices to VWireData buffer")
-			
-			if classOf progress == MAXScriptFunction then progress target.edges.count
-		)
 
 		meshRef -- Return VMeshRef
 	),	
@@ -793,8 +787,8 @@ struct VMeshLibrary (
 		for i = 1 to result.count do (
 			if result[i] == undefined do throw ("Missing mesh for level " + formattedPrint (i - 1) format:"u" + " in " + target.name)
 
-			-- Wireframe can be either one of the LOD meshes (visible edges) or shape object attached to one of the LOD meshes
-			if wireframe == undefined and result[i].wireframe then wireframe = result[i]
+			-- Wireframe is a shape object attached to one of the LOD meshes (using visible edges is deprecated)
+			-- if wireframe == undefined and result[i].wireframe then wireframe = result[i]
 			for child in result[i].children while wireframe == undefined where superClassOf child == shape do wireframe = child
 		)
 
@@ -826,22 +820,13 @@ struct VMeshLibrary (
 		local vertexFormat = VMeshFVF()
 
 		-- VMeshData will contain diffuse color (D3DFVF_DIFFUSE)
-		if attribs.colors then (
-			if not meshOp.getMapSupport target 0 then throw "Editable_mesh is missing map channel: 0"
-			if not meshOp.getMapSupport target -2 then throw "Editable_mesh is missing map channel: -2"
-
-			vertexFormat.colors = true
-		)
+		if attribs.colors then vertexFormat.colors = true
 
 		-- VMeshData will contain normals (D3DFVF_NORMAL)
 		if attribs.normals > 1 then vertexFormat.normals = true
 
 		-- VMeshData will contain one or more UV maps (D3DFVF_TEX1 to D3DFVF_TEX8)
-		if attribs.maps > 0 then (
-			for i = 1 to attribs.maps where not meshOp.getMapSupport target i do throw ("Editable_mesh is missing map channel: " + formattedPrint i format:"u")
-
-			vertexFormat.maps = attribs.maps
-		)
+		if attribs.maps > 0 then vertexFormat.maps = attribs.maps
 
 		-- Filename in attributes overrides supplied filename
 		if classOf attribs.filename == string and attribs.filename.count > 0 then filename = attribs.filename else (
@@ -855,7 +840,7 @@ struct VMeshLibrary (
 			local meshName = StringStream ""
 			format pattern (toLower (getFilenameFile filename)) (formattedPrint attribs.level format:"u") (formattedPrint (vertexFormat.GetMask()) format:"x") to:meshName
 
-			filename = meshName as string 
+			filename = meshName as string
 		)
 
 		-- Find existing VMeshData to append buffers
@@ -1011,7 +996,7 @@ struct VMeshLibrary (
 		for i = 1 to meshes.count do (
 			levelMesh = meshes[i]
 			meshData  = AddMesh levelMesh filename
-			meshRef   = meshData.Parse levelMesh &wireframe materialLib:materialLib textureLib:textureLib progress:progress
+			meshRef   = meshData.Parse levelMesh materialLib:materialLib textureLib:textureLib progress:progress
 
 			ranges[i + 1] = levelMesh.range
 
