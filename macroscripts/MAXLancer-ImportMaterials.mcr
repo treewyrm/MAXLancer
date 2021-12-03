@@ -8,7 +8,7 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 
 	local filename -- Filename of import subject
 
-	rollout ImportMaterialsRollout "Import Materials" width:320 height:448 (
+	rollout ImportMaterialsRollout "Import Materials" width:320 height:472 (
 		local textureLib
 		local materialLib
 		local targets -- Array of objects
@@ -16,10 +16,11 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 		dotNetControl materialsListView "System.Windows.Forms.ListView" pos:[8, 8] width:304 height:376
 
 		checkbox overwriteCheckbox "Overwrite matching materials in scene or selection" checked:true pos:[8, 392] width:304 height:16 tooltip:"Automatically replaces matching materials for objects in scene."
+		checkbox populateSlotEditorCheckbox "Populate material slot editor" checked:false pos:[8, 416] width:304 height:16
 
-		button selectAllButton "Select All" pos:[8, 416] width:88 height:24
-		button selectNoneButton "Select None" pos:[104, 416] width:88 height:24
-		button importButton "Import" pos:[224, 416] width:88 height:24
+		button selectAllButton "Select All" pos:[8, 440] width:88 height:24
+		button selectNoneButton "Select None" pos:[104, 440] width:88 height:24
+		button importButton "Import" pos:[224, 440] width:88 height:24
 
 		on selectAllButton pressed do for i = 1 to materialsListView.Items.count do (materialsListView.Items.Item (i - 1)).Checked = true
 		on selectNoneButton pressed do for i = 1 to materialsListView.Items.count do (materialsListView.Items.Item (i - 1)).Checked = false
@@ -43,11 +44,16 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 					local materials = for id in names collect materialLib.Build id textureLib:textureLib useCache:false
 					local hashes = for m in materials collect MAXLancer.Hash m.name
 					local index
-					local slotIndex = activeMeditSlot
+					
+					if populateSlotEditorCheckbox.checked then (
+						local slotIndex = activeMeditSlot
 
-					for m = 1 to materials.count while slotIndex <= 24 do (
-						setMeditMaterial slotIndex materials[m]
-						slotIndex += 1
+						for m = 1 to materials.count while slotIndex <= 24 do (
+							setMeditMaterial slotIndex materials[m]
+							slotIndex += 1
+						)
+
+						activeMeditSlot = amin slotIndex 24
 					)
 
 					if overwriteCheckbox.checked then (
@@ -59,7 +65,7 @@ macroscript ImportMaterials category:"MAXLancer" tooltip:"Import Materials" butt
 					)
 
 					DestroyDialog ImportMaterialsRollout
-					messageBox (formattedPrint count format:"u" + " materials were imported into material editor.")
+					messageBox (formattedPrint count format:"u" + " materials were imported into material editor.") beep:false
 				)
 
 				OK

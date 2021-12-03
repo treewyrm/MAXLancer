@@ -2,30 +2,24 @@
  * MAXLancer toolkit - Copyright (c) Yuriy Alexeev <treewyrm@gmail.com>
  *
  * Creates convex hulls from selected sub-elements of Editable_mesh.
- *
- *
- * - Pick target button
- * - Select all vertices in target when picked
- * - 
  */
 macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" buttontext:"Surface Builder" iconName:"MAXLancer/surface_builder" (
 	global MAXLancer
 	
-	local target -- Target editable_mesh or editable_poly
-
-	on isChecked do target != undefined
+	global MAXLancerSurfaceBuilderSelectionChange
+	global MAXLancerSurfaceBuilderLevelChange
 	
-	rollout SurfaceBuilderRollout "Surface Builder" width:192 height:228 (
+	local target -- Target editable_mesh or editable_poly
+	local selectHandler -- Sub-elements select handler
+
+	rollout SurfaceBuilderRollout "Surface Builder" width:192 height:212 (
 		local previewHull = TriMesh() -- Preview mesh to display in viewport
-		local selectHandler -- Sub-elements select handler
 
-		button createButton "Create Hull" pos:[24,8] width:144 height:24 enabled:false align:#left \
-			toolTip:"Creates hull mesh object for selected subelements."
+		colorPicker previewColor "Preview Wire Color:"
+		
+		checkbox displayPreview "Display Preview" checked:true
 
-		checkbox displayPreview "Display Preview" pos:[8, 40] checked:true
-		colorPicker previewColor "Preview Wire Color" pos:[8, 64]
-
-		slider maxVerticesSlider "Vertex Limit:" pos:[8,96] width:184 height:44 enabled:false type:#integer ticks:0 align:#left \
+		slider maxVerticesSlider "Vertex Limit:" width:184 height:44 enabled:false type:#integer ticks:0 align:#left \
 			toolTip:"Adjust number of maximum vertices used for hull generation."
 
 		label vertsSelectedLabel "Vertices Selected:" width:100 height:16 across:2 align:#left
@@ -34,24 +28,34 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 		label vertsUsedCount     "0"                  height:16 align:#right
 		label facesUsedLabel     "Faces Used:"        width:100 height:16 across:2 align:#left
 		label facesUsedCount     "0"                  height:15 align:#right
-		label volumeLabel        "Hull Volume:"       width:100 height:16 across:2 align:#left
-		label volumeCount        "0"                  height:16 align:#right
+		
+		edittext targetName "" width:172 align:#center labelOnTop:true readOnly:true
+		
+		button createButton "Create Hull" width:96 height:24 enabled:false align:#center \
+			toolTip:"Creates hull mesh object for selected subelements."
 
-		pickButton pickTargetButton "Pick Target" width:144 height:24
+		-- pickButton pickTargetButton "Pick Target" width:144 height:24
 
 		-- Draw preview in viewport
 		fn DisplayHullPreview = (
 			gw.setRndLimits #(#illum, #colorVerts, #wireframe)
+			
 			--gw.setTransform target.objectTransform
 			gw.setTransform (matrix3 1)
 
 			if displayPreview.checked and previewHull.numFaces > 0 then (
 				gw.startTriangles()
 
-				local face
+				local face, a, b, c
+				-- local viewTM = inverse (getViewTM())
+				
 				for f = 1 to previewHull.numFaces do (
 					face = getFace previewHull f
-					gw.triangle #(getVert previewHull face[1], getVert previewHull face[2], getVert previewHull face[3]) #(previewColor.color, previewColor.color, previewColor.color)
+					a = getVert previewHull face.x
+					b = getVert previewHull face.y
+					c = getVert previewHull face.z
+					
+					gw.triangle #(a, b, c) #(previewColor.color, previewColor.color, previewColor.color)
 				)
 
 				gw.endTriangles()
@@ -74,7 +78,8 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 
 		-- Reset controls (except vertsSelectionCount)
 		fn ClearControls = (
-			volumeCount.text = facesUsedCount.text = vertsUsedCount.text = "0"
+			facesUsedCount.text = vertsUsedCount.text = "0"
+			
 			maxVerticesSlider.range   = [0, 0, 0]
 			maxVerticesSlider.enabled = false
 			createButton.enabled      = false
@@ -82,7 +87,7 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 		)
 
 		-- Generate convex hull from selected vertices (for some reason pickButton can fail and object will be object's parent)
-		fn GenerateHull maxVertices:0 = (
+		fn GenerateHull maxVertices:0 = if target != undefined then (
 			local indices = case getSelectionLevel target of ( -- Sub-element selection need to be converted to vertices
 				#face: meshOp.getVertsUsingFace target (getFaceSelection target)
 				#edge: meshOp.getVertsUsingEdge target (getEdgeSelection target) -- Glitchy for some reason
@@ -94,6 +99,8 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 
 			vertsSelectedCount.text = vertices.count as string
 			if maxVertices == 0 then maxVertices = vertices.count
+			
+			previewHull.numFaces = 0
 
 			-- Convex mesh requires at least four vertices
 			if vertices.count >= 4 then (
@@ -111,7 +118,7 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 					createButton.enabled = true
 				)
 			) else (
-				previewHull.numFaces = 0
+				-- previewHull.numFaces = 0
 				ClearControls()
 			)
 		)
@@ -128,35 +135,60 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 			redrawViews()
 		)
 
+
 		on SurfaceBuilderRollout open do (
 			MAXLancer.config.LoadRollout SurfaceBuilderRollout controls:#()
 
 			unRegisterRedrawViewsCallback DisplayHullPreview
 			registerRedrawViewsCallback DisplayHullPreview
-			selectHandler = when select target changes do GenerateHull()
+
+			callbacks.addScript #selectionSetChanged "MAXLancerSurfaceBuilderSelectionChange()" id:#surfaceBuilderSwitch
+			callbacks.addScript #ModPanelSubObjectLevelChanged "MAXLancerSurfaceBuilderLevelChange()" id:#surfaceBuilderLevel
+			
+			MAXLancerSurfaceBuilderSelectionChange()
 		)
 		
 		on SurfaceBuilderRollout close do (
 			unRegisterRedrawViewsCallback DisplayHullPreview
+
 			if classOf selectHandler == ChangeHandler then deleteChangeHandler selectHandler
 			target = undefined
+
+			callbacks.removeScripts #selectionSetChanged id:#surfaceBuilderSwitch
+			callbacks.removeScripts #ModPanelSubObjectLevelChanged id:#surfaceBuilderLevel
+			
 			updateToolbarButtons()
 
 			MAXLancer.config.SaveRollout SurfaceBuilderRollout controls:#()
 		)
 	)
 	
-	on execute do (
-		if MAXLancer != undefined then (
-			if selection.count == 1 and (classOf selection[1] == Editable_mesh or classOf selection[1] == Editable_poly) then (
-				target = selection[1]
-				CreateDialog SurfaceBuilderRollout style:#(#style_titlebar, #style_border, #style_sysmenu, #style_minimizebox)	
-			) else messageBox "Select editable mesh or editable poly object."
-		) else messageBox "MAXLancer is not initialized."
+	fn MAXLancerSurfaceBuilderLevelChange = (
+		SurfaceBuilderRollout.GenerateHull()
 	)
+	
+	fn MAXLancerSurfaceBuilderSelectionChange = (
+		if classOf selectHandler == ChangeHandler then deleteChangeHandler selectHandler
+
+		selectHandler = target = undefined
+		SurfaceBuilderRollout.targetName.text = ""
+
+		if selection.count == 1 and classOf selection[1] == Editable_mesh then (
+			target = selection[1]
+			SurfaceBuilderRollout.targetName.text = target.name
+			
+			selectHandler = when select target changes do SurfaceBuilderRollout.GenerateHull()
+			SurfaceBuilderRollout.GenerateHull()
+		)
+	)
+	
+	on isChecked do SurfaceBuilderRollout.inDialog
+	
+	on execute do if MAXLancer != undefined then CreateDialog SurfaceBuilderRollout style:#(#style_titlebar, #style_border, #style_minimizebox) else messageBox "MAXLancer is not initialized."
 	
 	on closeDialogs do (
 		DestroyDialog SurfaceBuilderRollout
+		updateToolbarButtons()
 		target = undefined
 	)
 )

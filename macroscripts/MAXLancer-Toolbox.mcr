@@ -313,13 +313,10 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			
 			spinner levelSpinner "Level:" range:[0,12,0] type:#integer tooltip:"Sets this level to all selected meshes."
 			spinner distanceSpinner "View Distance:" range:[0, 3.4e38, 100] type:#float tooltip:"Sets this view distance to all selected meshes."
-			
-			checkbox resetXFormCheckbox "Reset Transform" checked:false tooltip:"Applies and collapses XForm Reset to meshes."
-			checkbox centerPivotCheckbox "Center Pivot" checked:false tooltip:"Moves mesh pivot to bounding box center."
 
 			button applyLevelsButton "Apply" width:76 height:24 align:#left across:2 tooltip:"Applies level of detail attributes to selected editable meshes."
 			button clearLevelsButton "Clear" width:76 height:24 align:#right tooltip:"Removes level of detail attributes from selected editable meshes."
-			button generateWireframeButton "Generate Wireframes" width:128 height:24 align:#center tooltip:"Generates wireframes for selected editable meshes."
+			
 		)
 
 		group "Collision Surfaces" (
@@ -329,48 +326,43 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			checkbox mergeHullsCheckbox "Merge Hulls" tooltip:"Merges hulls into single mesh."
 		)
 
-		on generateWireframeButton pressed do (
-			local wireframe
+		group "Miscellaneous" (
+			button createWireframesButton "Create Wireframes" width:128 height:24 align:#center tooltip:"Create wireframe shapes for selected editable meshes from visible edges."
+			button resetXFormButton "Reset Transforms" width:128 height:24 align:#center tooltip:"Applies and collapses XForm Reset to selected editable meshes."
+			button centerPivotButton "Reset Center Pivots" width:128 height:24 align:#center tooltip:"Resets pivot for selected editable meshes."
+		)
 
-			for target in selection where classOf target == Editable_mesh do (
-				wireframe = MAXLancer.GenerateWireframe target
+		on createWireframesButton pressed do for target in selection where classOf target == Editable_mesh do (
+			local wireframe = MAXLancer.GenerateWireframe target
 
-				if numSplines wireframe == 0 then delete wireframe else (
-					wireframe.wireColor = target.wireColor
-					wireframe.parent = target
-					wireframe.name = target.name + "_Wireframe"
-				)
+			if numSplines wireframe == 0 then delete wireframe else (
+				wireframe.wireColor = target.wireColor
+				wireframe.parent = target
+				wireframe.name = target.name + "_Wire"
 			)
 		)
 
 		on applySizeButton pressed do MAXLancer.SetRigidPartSize selection sizeSpinner.value
 
-		on applyLevelsButton pressed do (
-			local targets = for target in selection where classOf target == Editable_mesh collect target
+		on applyLevelsButton pressed do for target in selection where classOf target == Editable_mesh do (
+			MAXLancer.SetVMesh target
 
-			if resetXFormCheckbox.checked then (
-				
-				-- Remove meshes from hierarchy
-				for target in targets where not MAXLancer.IsRigidPartHelper target.parent do target.parent = undefined
-				
-				ResetXForm targets
-				collapseStack targets
-			)
-			
-			if centerPivotCheckbox.checked then CenterPivot targets 
-
-			-- Set LODs
-			MAXLancer.SetVMesh targets
-
-			for target in targets do (
-				target.level = levelSpinner.value
-				target.range = distanceSpinner.value
-			)
-			
-			OK
+			target.level = levelSpinner.value
+			target.range = distanceSpinner.value
 		)
 		
 		on clearLevelsButton pressed do MAXLancer.UnsetVMesh selection
+
+		on resetXFormButton pressed do (
+			local targets = for target in selection where classOf target == Editable_mesh collect target
+
+			for target in targets where not MAXLancer.IsRigidPartHelper target.parent do target.parent = undefined
+
+			ResetXForm targets
+			collapseStack targets
+		)
+
+		on centerPivotButton pressed do CenterPivot selection
 
 		-- on setVMeshButton pressed do MAXLancer.SetVMesh selection
 		-- on unsetVMeshButton pressed do MAXLancer.UnsetVMesh selection

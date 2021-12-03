@@ -588,35 +588,17 @@ struct FLMaterialLibrary (
 	)
 )
 
-/*
 struct FLMaterialAnimation (
-	filename,
-	deltas = #(),
+	name,
+	deltas  = #(),
 	offsets = #(),
-	flags = #(),
+	flags   = #(),
 
-	fn ReadUTF folder = (
-		filename = folder.name
-
-		local keyCount = folder.GetInteger "MACount"
-		if keyCount == undefined then throw "Material animation is missing MACount entry."
-
-		for k = 1 to keyCount do (
-			"MADeltas"
-			"MAFlags"
-
-			if k > 1 then (
-				"MAKeys"
-			)
-		)
-
+	fn ReadUTF reader = (
 		OK
 	),
 
 	fn WriteUTF writer = (
-		writer.StartFolder filename
-
-		writer.EndFolder()
 		OK
 	)
 )
@@ -627,25 +609,39 @@ struct FLMaterialAnimationLibrary (
 	fn ReadUTF reader filter: = (
 		if classOf reader != UTFReader then throw "Invalid UTFReader object."
 
-		local folder = reader.root.findFolder "MaterialAnim", result
+		local item -- FLMaterialAnimation
 
-		if folder != undefined then for subFolder in folder.getChildren type:#folder do (
+		if reader.OpenFolder "MaterialAnim" then (
+			for filename in reader.GetFolders() where reader.OpenFolder filename do (
+				MAXLancer.WriteLog ("Reading material animation: " + filename)
 
-			result = FLMaterialAnimation()
-			result.ReadUTF subFolder
-			append materials result
+				(item = FLMaterialAnimation name:filename).ReadUTF reader
+				append materials item
+
+				reader.CloseFolder() -- Close filename
+			)
+
+			reader.CloseFolder() -- Close MaterialAnim
 		)
 
 		OK
 	),
 
-	fn WriteUTF writer = (
+	fn WriteUTF writer filter: = (
 		if classOf writer != UTFWriter then throw "Invalid UTFWriter object."
 
-		writer.StartFolder "MaterialAnim"
-		for m in materials do m.WriteUTF writer
-		writer.EndFolder()
+		if materials.count > 0 and writer.OpenFolder "MaterialAnim" then (
+			for item in materials where writer.OpenFolder item.name do (
+				MAXLancer.WriteLog ("Writing material animation: " + item.name)
+
+				item.WriteUTF writer
+
+				writer.CloseFolder() -- Close filename
+			)
+
+			writer.CloseFolder() -- Close MaterialAnim
+		)
+
 		OK
 	)
 )
-*/

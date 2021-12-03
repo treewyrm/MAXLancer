@@ -91,7 +91,7 @@ macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" butt
 			select root
 			DestroyDialog ImportCharacterRollout
 			gc light:false
-			messageBox ("Character imported in " + formattedPrint (0.001 * (timeStamp() - start)) format:".2f" + " seconds")
+			messageBox ("Character imported in " + formattedPrint (0.001 * (timeStamp() - start)) format:".2f" + " seconds") beep:false
 		) catch (
 			DestroyDialog ImportCharacterRollout
 			messageBox (getCurrentException())

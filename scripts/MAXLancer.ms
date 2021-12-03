@@ -362,6 +362,7 @@ global MAXLancer = (
 			)
 		),
 
+		-- Collect rigid model LOD meshes
 		fn GetModelLevels root = (
 			local result = #()
 			local queue  = #(root)

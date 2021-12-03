@@ -783,7 +783,7 @@ fn GenerateWireframe target = if classOf target == Editable_mesh then (
 			startHash = MAXLancer.Hash stopPosition crc:(MAXLancer.Hash startPosition)
 			stopHash  = MAXLancer.Hash startPosition crc:(MAXLancer.Hash stopPosition)
 				
-			if appendIfUnique lineHashes startHash and appendIfUnique lineHashes stopHash then (
+			if appendIfUnique hashes startHash and appendIfUnique hashes stopHash then (
 				splineIndex = addNewSpline result
 				
 				addKnot result splineIndex #corner #line startPosition
