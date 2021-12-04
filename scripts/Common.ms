@@ -762,8 +762,8 @@ fn GetSphereBalls count sizeMin:0.1 sizeMax:1.0 fraction:1.0 tryLimit:100 = (
 )
 
 -- Generate wireframe Line object from visible edges of Editable mesh
-fn GenerateWireframe target = if classOf target == Editable_mesh then (
-	local result = Line steps:0
+fn GenerateWireframe target = if classOf target == Editable_mesh then in coordsys target (
+	local result = Line steps:0 transform:target.transform
 		
 	local faceVertices  -- Point3 of face indices
 	local startPosition -- Point3 line start

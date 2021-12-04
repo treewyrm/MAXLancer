@@ -12,24 +12,28 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 	local target -- Target editable_mesh or editable_poly
 	local selectHandler -- Sub-elements select handler
 
-	rollout SurfaceBuilderRollout "Surface Builder" width:192 height:212 (
+	rollout SurfaceBuilderRollout "Surface Builder" width:192 height:302 (
 		local previewHull = TriMesh() -- Preview mesh to display in viewport
 
-		colorPicker previewColor "Preview Wire Color:"
+		edittext targetName "Selected mesh:" width:172 align:#center labelOnTop:true readOnly:true
 		
-		checkbox displayPreview "Display Preview" checked:true
-
-		slider maxVerticesSlider "Vertex Limit:" width:184 height:44 enabled:false type:#integer ticks:0 align:#left \
-			toolTip:"Adjust number of maximum vertices used for hull generation."
-
-		label vertsSelectedLabel "Vertices Selected:" width:100 height:16 across:2 align:#left
-		label vertsSelectedCount "0"                  height:16 align:#right
-		label vertsUsedLabel     "Vertices Used:"     width:100 height:16 across:2 align:#left
-		label vertsUsedCount     "0"                  height:16 align:#right
-		label facesUsedLabel     "Faces Used:"        width:100 height:16 across:2 align:#left
-		label facesUsedCount     "0"                  height:15 align:#right
+		group "Hull Preview" (
+			checkbox displayPreview "Display" checked:true align:#left across:2
+			colorPicker previewColor "Color:" align:#right
+			dropdownlist displayMode "Render Mode:" items:#("Wireframe", "Solid", "Shaded")
+		)
 		
-		edittext targetName "" width:172 align:#center labelOnTop:true readOnly:true
+		group "Vertices" (
+			slider maxVerticesSlider "Vertex Limit:" width:176 height:44 enabled:false type:#integer ticks:0 align:#left \
+				toolTip:"Adjust number of maximum vertices used for hull generation."
+
+			label vertsSelectedLabel "Vertices Selected:" width:100 height:16 across:2 align:#left
+			label vertsSelectedCount "0"                  height:16 align:#right
+			label vertsUsedLabel     "Vertices Used:"     width:100 height:16 across:2 align:#left
+			label vertsUsedCount     "0"                  height:16 align:#right
+			label facesUsedLabel     "Faces Used:"        width:100 height:16 across:2 align:#left
+			label facesUsedCount     "0"                  height:15 align:#right
+		)
 		
 		button createButton "Create Hull" width:96 height:24 enabled:false align:#center \
 			toolTip:"Creates hull mesh object for selected subelements."
@@ -38,7 +42,7 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 
 		-- Draw preview in viewport
 		fn DisplayHullPreview = (
-			gw.setRndLimits #(#illum, #colorVerts, #wireframe)
+			if displayMode.selection > 1 then gw.setRndLimits #(#illum, #colorVerts, #backcull, #zBuffer) else gw.setRndLimits #(#illum, #colorVerts, #wireframe)
 			
 			--gw.setTransform target.objectTransform
 			gw.setTransform (matrix3 1)
@@ -46,16 +50,32 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 			if displayPreview.checked and previewHull.numFaces > 0 then (
 				gw.startTriangles()
 
-				local face, a, b, c
-				-- local viewTM = inverse (getViewTM())
+				local face, a, b, c, n, ad = 1, bd = 1, cd = 1, k = 1
+				local inverseViewTM = inverse (getViewTM())
 				
 				for f = 1 to previewHull.numFaces do (
 					face = getFace previewHull f
+					
 					a = getVert previewHull face.x
 					b = getVert previewHull face.y
 					c = getVert previewHull face.z
 					
-					gw.triangle #(a, b, c) #(previewColor.color, previewColor.color, previewColor.color)
+					if displayMode.selection == 3 then (
+						k = 1 - dot (getFaceNormal previewHull f) (normalize (inverseViewTM.row4 - meshop.getFaceCenter previewHull f))
+						k = amin 1 (amax 0 k)
+						
+						/*
+						ad = 1 - dot (getNormal previewHull face.x) (normalize (inverseViewTM.row4 - a))
+						bd = 1 - dot (getNormal previewHull face.y) (normalize (inverseViewTM.row4 - b))
+						cd = 1 - dot (getNormal previewHull face.z) (normalize (inverseViewTM.row4 - c))
+							
+						ad = amin 1 (amax 0 ad)
+						bd = amin 1 (amax 0 bd)
+						cd = amin 1 (amax 0 cd)
+						*/
+					)
+					
+					gw.triangle #(a, b, c) #(previewColor.color * ad * k, previewColor.color * bd * k, previewColor.color * cd * k)
 				)
 
 				gw.endTriangles()
@@ -65,10 +85,8 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 			gw.updateScreen()
 		)
 
-		on displayPreview changed state do (
-			gw.enlargeUpdateRect #whole
-			gw.updateScreen()
-		)
+		on displayPreview changed state do redrawViews()
+		on displayMode selected mode do redrawViews()
 		
 		-- Update Vertices Used label
 		fn UpdateVerticesUsed numVerts = (

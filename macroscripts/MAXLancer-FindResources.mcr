@@ -11,7 +11,7 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 		
 		edittext searchInput "" pos:[8,12] width:456 labelOnTop:true align:#left
 		button searchButton "Search" pos:[472,8] width:120 height:24 align:#left
-		button findMeshCollisionsButton "Find Dupe Meshes" pos:[472, 32] width:120 heigh:24 align:#left
+		button findMeshCollisionsButton "Check Meshes" pos:[472, 34] width:120 height:24 align:#left
 		
 		checkbox materialLibrariesCheckbox "Material libraries" pos:[16,40] width:128 height:16 align:#left checked:true
 		checkbox textureLibrariesCheckbox "Texture libraries" pos:[144,40] width:128 height:16 align:#left
@@ -31,6 +31,7 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 			searchProgress.width = statusLabel.width = size.x - 16
 			
 			searchButton.pos.x = size.x - 128
+			findMeshCollisionsButton.pos.x = size.x - 128
 			searchInput.width = searchButton.pos.x - 16
 			
 			messagesBox.pos.x = 8
