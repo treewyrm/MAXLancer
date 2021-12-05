@@ -299,6 +299,51 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 	
+	rollout TemplatesRollout "INI Templates" (
+		button loadoutButton "Loadout List" width:128 height:24 align:#center tooltip:"Generates [Loadout] template for equipment loadout from hardpoints of selected model."
+		-- button shipButton "Ship Archetype" width:128 height:24 align:#center tooltip:"Generates [Shiparch] tempalte for ship archetype."
+		-- button solarButton "Solar Archetype" width:128 height:24 align:#center tooltip:"Generates [Solararch] template for solar archetype."
+		
+		on loadoutButton pressed do (
+			local target = MAXLancer.PickSceneObject MAXLancer.IsRigidPartHelper message:"Select rigid part" prompt:"Select rigid part object"
+			
+			if target != undefined then (
+				local outputText = StringStream ""
+				local hardpoints  = MAXLancer.GetPartHardpoints target deep:true
+				local nameLength  = 0
+				
+				-- Filter out Hp
+				hardpoints = for hardpoint in hardpoints where (substring (toLower hardpoint.name) 1 2) == "hp" collect (
+					nameLength = amax nameLength hardpoint.name.count
+					hardpoint
+				)
+				
+				format "[Loadout]\r\nnickname = \%\r\n" to:outputText
+				
+				for hardpoint in hardpoints do
+					format "equip = \%, % %\r\n" hardpoint.name (formattedPrint ("; " + hardpoint.parent.name) format:(" " + (nameLength - hardpoint.name.count + hardpoint.parent.name.count + 2) as string + "s")) to:outputText
+
+				if setclipboardText (outputText as string) == true then messageBox "Loadout template copied into clipboard." beep:false
+				else messageBox "Unable to copy loadout template into clipboard." beep:true
+			)
+		)
+		
+		/*
+		on shipButton pressed do (
+			local target = MAXLancer.PickSceneObject MAXLancer.IsRigidPartHelper message:"Select rigid part" prompt:"Select rigid part object"
+			
+			if target != undefined then (
+				local outputText = StringStream ""
+				
+				format "[Ship]\r\nnickname = \%\r\n" to:outputText
+				
+				if setclipboardText (outputText as string) == true then messageBox "Ship archetype template copied into clipboard." beep:false
+				else messageBox "Unable to copy ship archetype template into clipboard." beep:true
+			)
+		)
+		*/
+	)
+	
 	-- Rigid models utilities
 	rollout RigidModelsRollout "Rigid Models" (
 
@@ -310,13 +355,11 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		-- button unsetVMeshButton "Unset" width:76 height:24 align:#right tooltip:"Unmarks selected editable meshes from exporting as levels of detail."
 
 		group "Levels of Detail" (
-			
 			spinner levelSpinner "Level:" range:[0,12,0] type:#integer tooltip:"Sets this level to all selected meshes."
 			spinner distanceSpinner "View Distance:" range:[0, 3.4e38, 100] type:#float tooltip:"Sets this view distance to all selected meshes."
 
 			button applyLevelsButton "Apply" width:76 height:24 align:#left across:2 tooltip:"Applies level of detail attributes to selected editable meshes."
 			button clearLevelsButton "Clear" width:76 height:24 align:#right tooltip:"Removes level of detail attributes from selected editable meshes."
-			
 		)
 
 		group "Collision Surfaces" (
@@ -446,8 +489,12 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 
 		on mirrorButton pressed do for source in selection where MAXLancer.IsHardpointHelper source do (
 			local root   = MAXLancer.GetRootFromHardpoint source
+			local uname  = uniqueName source.name numDigits:2
 			local target = copy source -- Create a copy of helper node
 			local matrix = if isValidNode root then root.transform else Matrix3 1
+				
+			target.name = uname
+			source.layer.addNode target
 			
 			local scaler = case mirrorAxis.state of (
 				1: [-1, 1, 1]
@@ -626,6 +673,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		addRollout RescaleRollout toolboxFloater
 		addRollout RigidModelsRollout toolboxFloater
 		addRollout HardpointsRollout toolboxFloater
+		addRollout TemplatesRollout toolboxFloater
 		addRollout ShaderDisplayRollout toolboxFloater
 		addRollout FlipTexturesRollout toolboxFloater
 		addRollout HashCalculatorRollout toolboxFloater

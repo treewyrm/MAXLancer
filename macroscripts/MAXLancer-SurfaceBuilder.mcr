@@ -35,8 +35,10 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 			label facesUsedCount     "0"                  height:15 align:#right
 		)
 		
-		button createButton "Create Hull" width:96 height:24 enabled:false align:#center \
+		button createButton "Create Hull" width:80 height:24 enabled:false across:2 align:#left \
 			toolTip:"Creates hull mesh object for selected subelements."
+		
+		button closeButton "Close" width:80 height:24 align:#right
 
 		-- pickButton pickTargetButton "Pick Target" width:144 height:24
 
@@ -87,6 +89,11 @@ macroscript SurfaceBuilder category:"MAXLancer" tooltip:"Surface Builder" button
 
 		on displayPreview changed state do redrawViews()
 		on displayMode selected mode do redrawViews()
+		
+		on closeButton pressed do (
+			DestroyDialog SurfaceBuilderRollout
+			updateToolbarButtons()
+		)
 		
 		-- Update Vertices Used label
 		fn UpdateVerticesUsed numVerts = (
