@@ -28,7 +28,7 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 		fn resize size = (
 			searchProgress.pos.y = size.y - 16
 			statusLabel.pos.y = searchProgress.pos.y - 24
-			searchProgress.width = statusLabel.width = size.x - 16
+			searchProgress.width = size.x - 16
 			
 			searchButton.pos.x = size.x - 128
 			findMeshCollisionsButton.pos.x = size.x - 128
