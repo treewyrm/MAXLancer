@@ -6,17 +6,10 @@
 macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"Export Rigid" iconName:"MAXLancer/export_rigid" (
 	global MAXLancer
 
-	local hardpointHullColor = (dotNetClass "System.Drawing.Color").LightSteelBlue
 	local target -- RigidPartHelper
 
 	-- Export .3db/.cmp
-	rollout ExportRigidRollout "Export Rigid Model" width:440 height:372 (
-		local meshLib      -- VMeshLibrary
-		local materialLib  -- FLMaterialLibrary
-		local textureLib   -- FLTextureLibrary
-		local animationLib -- AnimationLibrary
-		local surfaceLib   -- SurfaceLibrary or SimpleSurfaceLibrary
-		
+	rollout ExportRigidRollout "Export Rigid Model" width:440 height:392 (
 		local compound       = false
 		local indexCount     = 0 -- Number of indices in all mesh references
 		local triangleCount  = 0 -- Number of triangles in all hulls
@@ -28,44 +21,102 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		local hardpointCount = 0 -- Number of hardpoints
 		local hullCount      = 0 -- Number of convex hulls
 		local animationCount = 0 -- Number of animation layers
-
 		local progressCount  = 0 -- Process counter is based off indices
-
-		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:340
-
-		groupBox modelGroup "Model Resources:" pos:[288, 8] width:144 height:144
-		checkbox hardpointsCheckbox "Hardpoints" pos:[296, 28] width:128 height:16 toolTip:"Export model hardpoints to attach equipment."
+		local damageParts    = #() -- Array of RigidPartHelper
 		
+		local extraModels -- TreeNode
+
+		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:360
+
+		groupBox modelGroup "Model Resources:" pos:[288, 8] width:144 height:164
+		checkbox hardpointsCheckbox "Hardpoints" pos:[296, 28] width:128 height:16 toolTip:"Export model hardpoints to attach equipment."
 		checkbox meshesCheckbox "Meshes" pos:[296, 48] width:128 height:16 toolTip:"Export meshes and embed mesh library into model file."
 		checkbox wireframesCheckbox "Wireframes" pos:[296, 68] width:128 height:16 toolTip:"Export HUD wireframes from spline objects or LOD visible edges."
 		checkbox materialsCheckbox "Materials and Textures" pos:[296, 88] width:128 height:16 toolTip:"Export and embed materials and textures into model file. Required for THN scenery objects and starspheres."
 		checkbox materialAnimCheckbox "Material Animations" pos:[296, 108] width:128 height:16 toolTip:"Export material animations."
-		checkbox animationsCheckbox "Compound Animations" pos:[296, 128] width:128 height:16 toolTip:"Export compound animations and embed animation library into model file."
-		
-		groupBox surfaceGroup "Surfaces:" pos:[288, 160] width:144 height:84
-		checkbox surfacesCheckbox "Collision Surfaces" pos:[296, 180] width:128 height:16 toolTip:"Export surface hulls into hitbox."
-		checkbox surfacesForceConvex "Force Convex" pos:[296, 200] width:128 height:16 toolTip:"Rebuilds elements of surface hulls."
-		checkbox surfacesSimple "Aftermath Format" pos:[296, 220] width:128 height:16 toolTip:"Alternative surface format for Aftermath mod (export only)."
+		checkbox destructibleCheckbox "Destructible Parts" pos:[296, 128] width:128 height:16 toolTip:"Export destructible parts attached to Dp* hardpoints."
+		checkbox animationsCheckbox "Compound Animations" pos:[296, 148] width:128 height:16 toolTip:"Export compound animations and embed animation library into model file."
 
-		groupBox miscGroup "Miscellaneous:" pos:[288, 252] width:144 height:64
-		checkbox timestampsCheckbox "Timestamp Fragments" pos:[296, 272] width:128 height:16 toolTip:"Add timestamp marker to embedded .3db filenames."
-		checkbox versionCheckbox "Add Exporter Version" pos:[296, 292] width:128 height:16 checked:true toolTip:"Add exporter version entry into model file."
+		groupBox surfaceGroup "Surfaces:" pos:[288, 180] width:144 height:84
+		checkbox surfacesCheckbox "Collision Surfaces" pos:[296, 200] width:128 height:16 toolTip:"Export surface hulls into hitbox."
+		checkbox surfacesForceConvex "Force Convex" pos:[296, 220] width:128 height:16 toolTip:"Rebuilds elements of surface hulls."
+		checkbox surfacesSimple "Aftermath Format" pos:[296, 240] width:128 height:16 toolTip:"Alternative surface format for Aftermath mod (export only)."
+
+		groupBox miscGroup "Miscellaneous:" pos:[288, 272] width:144 height:64
+		checkbox timestampsCheckbox "Timestamp Fragments" pos:[296, 292] width:128 height:16 toolTip:"Add timestamp marker to embedded .3db filenames."
+		checkbox versionCheckbox "Add Exporter Version" pos:[296, 312] width:128 height:16 checked:true toolTip:"Add exporter version entry into model file."
 	
-		button exportButton "Export Model" pos:[288, 324] width:144 height:24
-		progressBar exportProgress "" pos:[8, 356] width:424 height:8
+		button exportButton "Export Model" pos:[288, 344] width:144 height:24
+		progressBar exportProgress "" pos:[8, 376] width:424 height:8
 		
 		fn ProgressCallback count = (
 			exportProgress.value = (progressCount += count) * 100.0 / (indexCount + triangleCount + lineCount)
 			windows.processPostedMessages()
+		)
+		
+		fn ExportModel target filename compound:true = (
+			local result       = if compound then MAXLancer.CreateRigidCompound() else MAXLancer.CreateRigidPart()
+			local meshLib      = MAXLancer.CreateVMeshLibrary()
+			local materialLib  = MAXLancer.CreateMaterialLibrary()
+			local textureLib   = MAXLancer.CreateTextureLibrary()
+			local animationLib = if compound then MAXLancer.CreateAnimationLibrary()
+			local surfaceLib   = if surfacesSimple.checked then MAXLancer.CreateSimpleSurfaceLibrary() else MAXLancer.CreateSurfaceLibrary()
+			local writer       = MAXLancer.CreateUTFWriter()
+			
+			result.filename = filename
+			
+			-- Parse model
+			result.Parse target \
+				hardpoints:  hardpointsCheckbox.checked \
+				wireframes:  wireframesCheckbox.checked \
+				meshLib:     (if meshesCheckbox.checked then meshLib) \
+				materialLib: (if materialsCheckbox.checked then materialLib) \
+				textureLib:  (if materialsCheckbox.checked then textureLib) \
+				progress:    ProgressCallback
+			
+			-- Open UTF writer
+			writer.Open filename
+
+			-- Write VMeshLibrary
+			if meshesCheckbox.checked then meshLib.WriteUTF writer
+
+			-- Write material and texture libraries
+			if materialsCheckbox.checked and materialLib != undefined and textureLib != undefined then (
+				materialLib.WriteUTF writer
+				textureLib.WriteUTF writer
+			)
+		
+			-- Parse and write compound animation library
+			if animationsCheckbox.checked and animationLib != undefined then (
+				animationLib.Parse target
+				animationLib.WriteUTF writer
+			)
+		
+			-- Add Exporter Version
+			if versionCheckbox.checked and classOf MAXLancer.exporterVersion == string and MAXLancer.exporterVersion.count > 0 then (
+				writer.Reset()
+				writer.WriteFileString "Exporter Version" MAXLancer.exporterVersion
+			)
+		
+			result.WriteUTF writer timestamps:timestampsCheckbox.checked
+			writer.Close()
+		
+			-- Parse and write surfaces
+			if surfacesCheckbox.checked and surfaceLib != undefined then (
+				surfaceLib.Parse target compound forceConvex:surfacesForceConvex.checked progress:ProgressCallback
+				surfaceLib.SaveFile (getFilenamePath filename + getFilenameFile filename + (if surfacesSimple.checked then ".rcd" else ".sur"))
+			)
+			
+			-- Update filename
+			setUserProp target #filename filename
+			
+			OK
 		)
 
 		on exportButton pressed do try (
 			gc light:false
 			
 			local filename = getUserProp target #filename
-			local result
-			local writer
-			local mode = 0
 			local start
 
 			-- Replace with unsupplied for filename is optional argument for getSaveFileName
@@ -74,66 +125,16 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			-- Confirm export filename
 			filename = getSaveFileName caption:"Export Freelancer Model:" filename:filename types:(if compound then "Compound Rigid Model (.cmp)|*.cmp|" else "Rigid Model (.3db)|*.3db|")
 			
+			local prefix = getFilenamePath filename + getFilenameFile filename
+			
 			if filename != undefined then (
 				start = timeStamp()
-
-				-- Initialize libraries
-				meshLib      = MAXLancer.CreateVMeshLibrary()
-				materialLib  = MAXLancer.CreateMaterialLibrary()
-				textureLib   = MAXLancer.CreateTextureLibrary()
-				animationLib = MAXLancer.CreateAnimationLibrary()
-				surfaceLib   = if surfacesSimple.checked then MAXLancer.CreateSimpleSurfaceLibrary() else MAXLancer.CreateSurfaceLibrary()
-
-				-- Parse into model
-				result = if compound then MAXLancer.CreateRigidCompound() else MAXLancer.CreateRigidPart()
-				result.filename = filename
-
-				-- Parse model
-				result.Parse target \
-					hardpoints:  hardpointsCheckbox.checked \
-					wireframes:  wireframesCheckbox.checked \
-					meshLib:     (if meshesCheckbox.checked then meshLib) \
-					materialLib: (if materialsCheckbox.checked then materialLib) \
-					textureLib:  (if materialsCheckbox.checked then textureLib) \
-					progress:    ProgressCallback
-
-				-- Open UTF writer
-				writer = MAXLancer.CreateUTFWriter()
-				writer.Open filename
-
-				-- Write VMeshLibrary
-				if meshesCheckbox.checked then meshLib.WriteUTF writer
-
-				-- Write material and texture libraries
-				if materialsCheckbox.checked then (
-					materialLib.WriteUTF writer
-					textureLib.WriteUTF writer
-				)
-			
-				-- Parse and write compound animation library
-				if animationsCheckbox.checked then (
-					animationLib.Parse target
-					animationLib.WriteUTF writer
-				)
-			
-				-- Add Exporter Version
-				if versionCheckbox.checked then (
-					writer.Reset()
-					writer.WriteFileString "Exporter Version" MAXLancer.exporterVersion
-				)
-				-- Write .3db/.cmp
-			
-				result.WriteUTF writer timestamps:timestampsCheckbox.checked
-				writer.Close()
-			
-				-- Parse and write surfaces
-				if surfacesCheckbox.checked then (
-					surfaceLib.Parse target compound forceConvex:surfacesForceConvex.checked progress:ProgressCallback
-					surfaceLib.SaveFile (getFilenamePath filename + getFilenameFile filename + (if surfacesSimple.checked then ".rcd" else ".sur"))
-				)
-			
-				-- Update filename
-				setUserProp target #filename filename
+				
+				ExportModel target filename compound:compound
+				
+				-- Export destructible parts ([filename]_[name].3db)
+				for target in damageParts while destructibleCheckbox.checked do
+					ExportModel target (prefix + "_" + target.name + ".3db") compound:false
 
 				DestroyDialog ExportRigidRollout
 				gc light:false -- Free up some memory
@@ -191,13 +192,13 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				local count = 0
 
 				for item in items do if MAXLancer.IsHardpointHelper item then (
-					subchild = child.Nodes.add (item.name + " (" + formattedPrint (getNumFaces item.hullMesh) format:"u" + " faces)")
+					subchild = child.Nodes.add ("*" + item.name + " (" + formattedPrint (getNumFaces item.hullMesh) format:"u" + " faces)")
 					
 					triangleCount += getNumFaces item.hullMesh
 					hullCount += 1
 					count += 1
 					
-					subchild.ForeColor = hardpointHullColor
+					subchild.Text = "*" + subchild.Text
 				) else if classOf item == Editable_mesh then (
 					elements = MAXLancer.GetMeshElements item
 
@@ -209,7 +210,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 						subchild = child.Nodes.add (item.name + " (" + formattedPrint faces.numberSet format:"u" + " faces)")
 						if item.parent != part then subchild.Text += ": " + item.parent.name
 
-						if findItem hardpoints (MAXLancer.Hash item.name) > 0 then subchild.ForeColor = hardpointHullColor
+						if findItem hardpoints (MAXLancer.Hash item.name) > 0 then subchild.Text = "*" + subchild.Text
 					)
 				)
 				
@@ -237,6 +238,8 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 
 			-- List LOD materials and face count
 			for m = 1 to materials.count do (
+				if materials[m] == undefined then throw ("LOD mesh (" + level.name + ") has no material(s).")
+				
 				child.Nodes.add (formattedPrint m format:"02u" + ": " + materials[m].name + " (" + formattedPrint faces[m].numberSet format:"u" + " faces)")
 
 				if classOf materials[m] == DxMaterial then materialCount += 1
@@ -252,7 +255,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			local type
 
 			-- List LODs
-			if levels.count > 0 do (
+			if levels.count > 0 then (
 				child = parent.Nodes.add ("Levels (" + formattedPrint levels.count format:"u" + ")")
 				meshCount += levels.count
 
@@ -282,7 +285,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			local layers = MAXLancer.GetAnimations part
 
 			if layers.count > 0 do (
-				parent = parent.Nodes.Add "Animations"
+				parent = parent.Nodes.Add ("Animations (" + layers.count as String + ")")
 				animationCount += 1
 
 				for name in layers do parent.Nodes.Add name
@@ -303,6 +306,37 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			OK
 		)
 
+		fn ListDamageModel part parent = (
+			local model     -- RigidPartHelper
+			local hardpoint -- HardpointHelper
+			local duplicateName = false
+
+			MAXLancer.GetPartDamageModel part &model &hardpoint
+
+			if model != undefined and hardpoint != undefined then (
+
+				-- Check duplicate name
+				for damagePart in damageParts while not duplicateName where MAXLancer.Hash damagePart.name == MAXLancer.Hash model.name do duplicateName = true
+				if duplicateName then throw ("Duplicate damage part name: " + model.name)
+
+				-- Check DpConnect hardpoint in damage part
+				if MAXLancer.FindHardpoint model "DpConnect" == undefined then throw ("Damage part " + model.name + " is missing DpConnect hardpoint.")
+
+				-- Check dmg_hp presence
+				if not MAXLancer.IsHardpointHelper hardpoint then throw ("Damage part has no target hardpoint: " + model.name)
+
+				-- Check dmg_hp to be in part parent
+				if hardpoint.parent != part.parent then throw ("Damage hardpoint " + hardpoint.name + " has invalid parent object.")
+
+				parent.Nodes.Add ("Damage part: " + model.name)				
+				ListPart model (treeBox.Nodes.Add (part.name + " (" + hardpoint.name + "): " + model.name))
+
+				append damageParts model
+			)
+
+			OK
+		)
+
 		fn ListCompound root parent = (
 			local queue = #(DataPair parent root)
 			local child -- Part list node
@@ -316,11 +350,15 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				queue.count = queue.count - 1
 
 				joint = MAXLancer.GetCompoundJoint part root:(root == part)
-				type  = MAXLancer.GetJointType joint
+				type  = MAXLancer.GetJointType joint				
 				child = parent.Nodes.add (part.name + " (" + type + ")")
+				
 				ListPart part child
+
+				if part != root then ListDamageModel part child
 				
 				if part == root then child.Expand()
+
 				for subpart in part.children where MAXLancer.IsRigidPartHelper subpart do append queue (DataPair child subpart)
 			)
 
@@ -349,6 +387,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				materialAnimCheckbox.checked = materialAnimCheckbox.enabled = false
 				animationsCheckbox.checked   = animationsCheckbox.enabled   = animationCount > 0
 				timestampsCheckbox.checked   = timestampsCheckbox.enabled   = compound
+				destructibleCheckbox.checked = destructibleCheckbox.enabled = damageParts.count > 0
 				materialsCheckbox.enabled    = materialCount > 0
 
 				OK

@@ -5,6 +5,9 @@
 -- Round float to digit
 fn RoundFloat f d = floor (f * (10 ^ d)) / (10 ^ d)
 
+-- Round Point3 components to digit
+fn RoundPoint3 p d = [RoundFloat p.x d, RoundFloat p.y d, RoundFloat p.z d]
+
 -- Format miliseconds to seconds as string
 fn FormatSeconds ms = formattedPrint (0.001 * ms) format:".2f"
 

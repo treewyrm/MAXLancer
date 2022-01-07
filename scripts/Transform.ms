@@ -7,6 +7,50 @@
  * in animation header.
  */
 
+plugin TransformController HardpointLinkController name:"Hardpoint Link" classID:#(0x4C58414D, 0x6B6C7968) (
+	
+	parameters HardpointLinkParameters rollout:HardpointLinkRollout (
+		origin  type:#matrix3 animatable:false
+		offset  type:#matrix3 animatable:false
+		target  type:#node    animatable:false ui:targetPicker
+		preview type:#boolean animatable:false ui:previewButton
+	)
+
+	rollout HardpointLinkRollout "Hardpoint Link Parameters" (
+
+		fn FilterHardpoint target = classOf target == HardpointHelper
+
+		label sourceLabel "Source Hardpoint:"
+		button offsetPickButton "Pick" message:"Select source hardpoint." width:72 height:24 across:2
+		button offsetResetButton "Reset" width:72 height:24
+
+		label targetLabel "Target Hardpoint:"
+		pickbutton targetPicker "Pick Hardpoint" message:"Select target hardpoint." width:128 height:24 filter:FilterHardpoint autoDisplay:true
+
+		checkbutton previewButton "Preview" width:88 height:24
+
+		on offsetPickButton pressed do (
+			local previewPrevious = preview
+			preview = false
+
+			local hardpoint = pickObject message:"Select source hardpoint." filter:FilterHardpoint
+			if hardpoint != undefined then offset = hardpoint.transform * inverse origin
+			preview = previewPrevious
+		)
+
+		on offsetResetButton pressed do offset = matrix3 1
+	)
+
+	on getValue do if preview and isValidNode target then inverse offset * target.transform else origin
+
+	on setValue absolute relative commit do if not preview then origin = absolute
+
+	on create do (
+		isLeaf = false
+		isKeyable = false
+	)
+)
+
 -- Fixed joint transform is just that, has no animation support (Fix).
 plugin TransformController FixedJointController name:"Fixed Joint" classID:#(0x4C58414D, 0x64786966) (
 

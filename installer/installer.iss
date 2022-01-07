@@ -1,6 +1,6 @@
 [Setup]
 AppName=MAXLancer
-AppVersion=0.9
+AppVersion=0.91
 Uninstallable=no
 WizardStyle=modern
 DefaultDirName={code:get3DsMaxDir}
@@ -18,6 +18,7 @@ Source: "..\scripts\*"; DestDir:"{app}\scripts\MAXLancer"
 Source: "..\startup\*"; DestDir:"{app}\scripts\Startup"
 Source: "..\macroscripts\*"; DestDir:"{app}\MacroScripts"
 Source: "..\shaders\*"; DestDir:"{app}\maps\fx\MAXLancer"
+Source: "..\tools\*"; DestDir:"{app}\scripts\MAXLancer\tools"
 Source: "..\icons\*"; DestDir:"{app}\UI_ln\Icons\Dark\MAXLancer"
 Source: "..\icons\*"; DestDir:"{app}\UI_ln\Icons\Light\MAXLancer"
 

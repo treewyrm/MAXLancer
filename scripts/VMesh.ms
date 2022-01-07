@@ -208,6 +208,7 @@ struct VMeshData (
 	normals      = #(),        -- Array of point3: vertex normals
 	colors       = #(),        -- Array of color: vertex color tint and alpha
 	maps         = #(),        -- Arrays of point3: vertex UV maps
+	faceSGroups  = #(),        -- Array of Integer (bitmap per face)
 
 	on create do for m = 1 to vertexFormat.maps do maps[m] = #(),
 
@@ -282,9 +283,33 @@ struct VMeshData (
 		OK
 	),
 
-	fn ReadUTF reader buffers:true = if reader.OpenFile "VMeshData" then ReadStream reader.data buffers:buffers else throw "Error reading VMeshData",
+	fn ReadStreamGroups stream = (
+		faceSGroups.count = ReadShort stream #unsigned
+		for f = 1 to faceSGroups.count do faceSGroups[f] = ReadLong stream #unsigned
 
-	fn WriteUTF writer = if writer.OpenFile "VMeshData" then WriteStream writer.data else throw "Error writing VMeshData",
+		MAXLancer.WriteLog ("Read " + formattedPrint faceSGroups.count format:"u" + " face groups")
+		OK
+	),
+
+	fn WriteStreamGroups stream = (
+		WriteShort stream faceSGroups.count
+		for f = 1 to faceSGroups.count do WriteLong stream faceSGroups[f] #unsigned
+
+		MAXLancer.WriteLog ("Wrote " + formattedPrint faceSGroups.count format:"u" + " face groups")
+		OK
+	),
+
+	fn ReadUTF reader buffers:true = (
+		if reader.OpenFile "VMeshData" then ReadStream reader.data buffers:buffers else throw "Error reading VMeshData"
+		if reader.OpenFile "FaceGroupData" then ReadStreamGroups reader.data
+		OK
+	),
+
+	fn WriteUTF writer = (
+		if writer.OpenFile "VMeshData" then WriteStream writer.data else throw "Error writing VMeshData"
+		-- if faceSGroups.count > 0 and writer.OpenFile "FaceGroupData" then WriteStreamGroups writer.data
+		OK
+	),
 
 	-- Append VMeshData block
 	fn AppendData meshData = (
@@ -309,9 +334,11 @@ struct VMeshData (
 	),
 
 	-- Parse target Editable_mesh as triangle list into VMeshData and produce VMeshRef
-	fn Parse target materialLib: textureLib: progress: epsilon:0.01 = (
+	fn Parse target materialLib: textureLib: progress: hashDecimal: = (
 		if classOf target != Editable_mesh then throw "Invalid Editable_mesh object"
 		if (custAttributes.get target VMeshAttributes) == undefined then throw "Editable_mesh does not have VMeshAttributes"
+
+		if hashDecimal == unsupplied then hashDecimal = MAXLancer.hashDecimal
 
 		local hasVertexColor = meshOp.getMapSupport target 0
 		local hasVertexAlpha = meshOp.getMapSupport target -2
@@ -413,13 +440,16 @@ struct VMeshData (
 				faceColors   = if vertexFormat.colors then meshOp.getMapFace target 0 f
 				faceMaps     = for m = 1 to vertexFormat.maps collect meshop.getMapFace target m f
 
+				-- Collect smoothing groups
+				if target.normals == 3 then append faceSGroups (getFaceSmoothGroup target f)
+
 				-- Face verteices/edges
 				for i = 1 to 3 do (
 					if indices.count >= 0xFFFF then throw "Too many VMeshData indices"
 
 					-- Vertex position
 					vertexPosition = getVert target faceVertices[i]
-					vertexHash = MAXLancer.Hash vertexPosition 
+					vertexHash = MAXLancer.Hash (RoundPoint3 vertexPosition hashDecimal)
 
 					-- Update VMeshRef bounding box
 					meshRef.minimum.x = amin meshRef.minimum.x vertexPosition.x
@@ -441,7 +471,7 @@ struct VMeshData (
 							4: faceVNormals[i]
 						)
 
-						vertexHash = MAXLancer.Hash vertexNormal crc:vertexHash
+						vertexHash = MAXLancer.Hash (RoundPoint3 vertexNormal hashDecimal) crc:vertexHash
 					)
 
 					-- Vertex diffuse color and transparency
@@ -455,7 +485,7 @@ struct VMeshData (
 					-- Vertex texture maps
 					for m = 1 to faceMaps.count do (
 						vertexMaps[m] = if hasVertexMaps[m] then meshOp.getMapVert target m faceMaps[m][i] else [0, 0, 0]
-						vertexHash    = MAXLancer.Hash vertexMaps[m] crc:vertexHash
+						vertexHash    = MAXLancer.Hash (RoundPoint3 vertexMaps[m] hashDecimal) crc:vertexHash
 					)
 					
 					/*
@@ -542,6 +572,7 @@ struct VMeshData (
 		for m = 1 to vertexFormat.maps do maps[m].count = vertexCount
 
 		MAXLancer.WriteLog ("Written " + formattedPrint meshRef.vertexCount format:"u" + " vertices in: " + filename)
+		MAXLancer.WriteLog (formattedPrint faceSGroups.count format:"u" + " faces for smoothing groups")
 
 		-- Remove normal modifier
 		if vertexFormat.normals and target.normals == 2 then deleteModifier target normalsMod
@@ -591,6 +622,10 @@ struct VMeshData (
 			appendIfUnique materialIDs groups[meshRef.groupStart + g].materialID
 		)
 
+		local faceIndex          = meshRef.indexStart / 3
+		local faceSmoothGroup    = 0
+		local hasSmoothingGroups = faceSGroups.count >= faceIndex + faces.count
+
 		-- Create mesh
 		local result = mesh name:(formatID meshRef.meshID) vertices:(for v = 1 to meshRef.vertexCount collect positions[meshRef.vertexStart + v]) faces:faces backFaceCull:true parent:parent transform:parent.transform
 		
@@ -614,7 +649,12 @@ struct VMeshData (
 
 		-- Apply channel map indices to face vertices (UVs, vertex color, alpha)
 		for f = 1 to faces.count do (
-			setFaceSmoothGroup result f (if vertexFormat.normals then 0 else 1)
+			faceSmoothGroup = if vertexFormat.normals then 0 else 1
+			faceIndex += 1
+
+			if hasSmoothingGroups then faceSmoothGroup = faceSGroups[faceIndex]
+
+			setFaceSmoothGroup result f faceSmoothGroup
 			
 			-- UV maps
 			for m = 1 to vertexFormat.maps do meshOp.setMapFace result m f faces[f]
@@ -779,9 +819,11 @@ struct VMeshLibrary (
 		local result = #()
 
 		-- LOD meshes must not have same level
-		for child in target.children where VMeshLibrary.IsValidMesh child do
-			if result[child.level + 1] == undefined then result[child.level + 1] = child else
+		for child in target.children do case of (
+			(VMeshLibrary.IsValidMesh child): if result[child.level + 1] == undefined then result[child.level + 1] = child else
 				throw ("Duplicate level " + formattedPrint child.level format:"u" + " for " + target.name + " found in " + child.name)
+			(superClassOf child == shape): wireframe = child
+		)
 
 		-- Ensure there are no gaps and grab wireframe
 		for i = 1 to result.count do (
@@ -809,51 +851,72 @@ struct VMeshLibrary (
 		materialIDs -- Return Array of numbers
 	),
 
-	-- Create internal filename based on target attributes and supplied filename, find existing VMeshData matching internal filename or create new one
-	fn AddMesh target filename pattern:"%.lod%-%.vms" = (
-		if classOf target != Editable_mesh then throw "Invalid Editable_mesh object"
+	-- Create full buffer name from relative path to Freelancer and result filename, LOD level and 
+	fn CreateBufferName filename type vertexFormat = (
+		if classOf filename != string then throw "Invlaid buffer filename"
+		if classOf type != string then throw "Invalid buffer type"
+		if classOf vertexFormat != VMeshFVF then throw "Invalid VMeshFVF object"
 
-		local attribs = custAttributes.get target VMeshAttributes
-		if attribs == undefined then throw "Editable_mesh does not have VMeshAttributes"
+		local result = StringStream ""
+
+		-- Get path relative to freelancerPath
+		if MAXLancer.freelancerPath != undefined then filename = pathConfig.convertPathToRelativeTo filename MAXLancer.freelancerPath
+
+		-- If path lies within freelancerPath remove initial ".\" and replace slashes with dots
+		if substring filename 1 2 == ".\\" then filename = substring (substituteString filename "\\" ".") 3 -1
+
+		format "%.%-%.vms" (toLower (getFilenameFile filename)) type (formattedPrint (vertexFormat.GetMask()) format:"x") to:result
+
+		result as string -- Return String
+	),
+
+	-- Create internal filename based on target attributes and supplied filename, find existing VMeshData matching internal filename or create new one
+	fn CreateBuffer target filename = (
+		if not isValidNode target then throw (target.name + " is not a valid scene node")
+		if classOf filename != string then throw "Invalid buffer filename"
 
 		-- Minimally VMeshData will contain vertex positions (D3DFVF_XYZ)
 		local vertexFormat = VMeshFVF()
 
-		-- VMeshData will contain diffuse color (D3DFVF_DIFFUSE)
-		if attribs.colors then vertexFormat.colors = true
+		local buffername = case of (
+			(MAXLancer.IsRigidLevel target): (
+				local attribs = custAttributes.get target VMeshAttributes
 
-		-- VMeshData will contain normals (D3DFVF_NORMAL)
-		if attribs.normals > 1 then vertexFormat.normals = true
+				-- VMeshData will contain diffuse color (D3DFVF_DIFFUSE)
+				if attribs.colors then vertexFormat.colors = true
 
-		-- VMeshData will contain one or more UV maps (D3DFVF_TEX1 to D3DFVF_TEX8)
-		if attribs.maps > 0 then vertexFormat.maps = attribs.maps
+				-- VMeshData will contain normals (D3DFVF_NORMAL)
+				if attribs.normals > 1 then vertexFormat.normals = true
 
-		-- Filename in attributes overrides supplied filename
-		if classOf attribs.filename == string and attribs.filename.count > 0 then filename = attribs.filename else (
-		
-			-- Get path relative to freelancerPath
-			if MAXLancer.freelancerPath != undefined then filename = pathConfig.convertPathToRelativeTo filename MAXLancer.freelancerPath
+				-- VMeshData will contain one or more UV maps (D3DFVF_TEX1 to D3DFVF_TEX8)
+				if attribs.maps > 0 then vertexFormat.maps = attribs.maps
 
-			-- If path lies within freelancerPath remove initial ".\" and replace slashes with dots
-			if substring filename 1 2 == ".\\" then filename = substring (substituteString filename "\\" ".") 3 -1
-
-			local meshName = StringStream ""
-			format pattern (toLower (getFilenameFile filename)) (formattedPrint attribs.level format:"u") (formattedPrint (vertexFormat.GetMask()) format:"x") to:meshName
-
-			filename = meshName as string
+				if classOf attribs.filename == string and attribs.filename.count > 0 then attribs.filename else
+					CreateBufferName filename ("lod" + formattedPrint attribs.level format:"u") vertexFormat
+			)
+			(superClassOf target == shape): (
+				CreateBufferName filename "wire" vertexFormat
+			)
 		)
 
+		if buffername == undefined then throw (target.name + " has no mesh buffer name")
+
 		-- Find existing VMeshData to append buffers
-		local meshData = GetMesh filename
+		local result = GetMesh buffername
 
 		-- Create new VMeshData if no matching VMeshData exist add to library
-		if meshData == undefined then append meshes (meshData = VMeshData filename:filename vertexFormat:vertexFormat)
-		
-		-- Check mode and format
-		-- if meshData.mode != attribs.mode then throw "Mismatched primitive type."
-		if meshData.vertexFormat.GetMask() != vertexFormat.GetMask() then throw "Mismatched vertex format"
+		if result == undefined then (
+			result = VMeshData filename:buffername vertexFormat:vertexFormat
 
-		meshData -- Return VMeshData
+			if superClassOf target == shape then result.mode = 2 -- Set line list for shape
+
+			append meshes result
+		)
+
+		-- Check mode and format
+		if result.vertexFormat.GetMask() != vertexFormat.GetMask() then throw ("Mismatched vertex format for object " + target.name + " in buffer " + buffername)
+		
+		result -- Return VMeshData
 	),
 
 	/**
@@ -921,8 +984,60 @@ struct VMeshLibrary (
 		OK
 	),
 
+	-- Parse shape object into special mesh buffer
+	fn ParseFreeShape target meshData origin hashDecimal: progress: = (
+
+		if hashDecimal == unsupplied then hashDecimal = MAXLancer.hashDecimal
+
+		local wireData = VWireData meshID:(MAXLancer.Hash meshData.filename) vertexStart:meshData.vertexCount
+
+		local firstIndex     -- Spline first knot vertex index
+		local previousIndex  -- Previous knot vertex index
+		local vertexIndex    -- Current knot vertex index
+		local knotPosition   -- Current knot position vector
+		local vertexPosition -- Lookup vertex position vector
+		local edges = #()    -- Array of Point2
+
+		MAXLancer.WriteLog ("Parsing freeform wireframe (" + meshData.filename + "): " + target.name)
+
+		in coordsys origin for s = 1 to numSplines target do (
+			firstIndex = previousIndex = 0
+
+			for k = 1 to numKnots target s do (
+				knotPosition = getKnotPoint target s k
+				vertexIndex = 0
+
+				-- Find existing position
+				for v = wireData.vertexStart + 1 to meshData.vertexCount while vertexIndex == 0 where MAXLancer.Hash (RoundPoint3 knotPosition hashDecimal) == MAXLancer.Hash (RoundPoint3 meshData.positions[v] hashDecimal) do vertexIndex = v
+
+				if vertexIndex == 0 then (
+					append meshData.positions knotPosition
+					vertexIndex = meshData.vertexCount += 1
+				)
+
+				if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop
+				else if k > 1 and previousIndex > 0 and vertexIndex > 0 and previousIndex != vertexIndex then (
+					-- append meshData.indices (previousIndex - 1)
+					-- append meshData.indices (vertexIndex - 1)
+					append edges [previousIndex - 1, vertexIndex - 1]
+				)
+
+				previousIndex = vertexIndex
+			)
+
+			if isClosed target s and firstIndex > 0 and previousIndex > 0 then append edges [previousIndex - 1, firstIndex - 1]
+
+			if classOf progress == MAXScriptFunction then progress (numSegments target s)
+		)
+
+		local indexCount = wireData.AppendLines edges
+		MAXLancer.WriteLog ("Added " + formattedPrint indexCount format:"u" + " wireframe indices to VWireData buffer")
+
+		wireData -- Return VWireData
+	),
+
 	-- Parse shape object by mapping spline knots to mesh vertices to create lines in VWireData
-	fn ParseShape target meshRef origin epsilon:0.05 progress: = (
+	fn ParseMeshShape target meshRef origin epsilon:0.05 progress: = (
 		if superClassOf target != shape then throw "Invalid shape object type"
 		if classOf meshRef != VMeshRef then throw "Invalid VMeshRef object"
 
@@ -938,7 +1053,7 @@ struct VMeshLibrary (
 		local vertexPosition -- Lookup vertex position vector
 		local edges = #()    -- Array of Point2
 
-		MAXLancer.WriteLog ("Parsing wireframe: " + target.name)
+		MAXLancer.WriteLog ("Parsing LOD mesh wireframe (" + meshData.filename + "): " + target.name)
 
 		-- Process each shape spline
 		in coordsys origin for s = 1 to numSplines target do (
@@ -958,7 +1073,7 @@ struct VMeshLibrary (
 
 				if vertexIndex > 0 then (
 					if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop
-					if k > 1 and previousIndex > 0 and vertexIndex > 0 and previousIndex != vertexIndex then append edges [previousIndex - 1, vertexIndex - 1]
+					else if k > 1 and previousIndex > 0 and vertexIndex > 0 and previousIndex != vertexIndex then append edges [previousIndex - 1, vertexIndex - 1]
 
 					previousIndex = vertexIndex
 				) else MAXLancer.WriteLog ("WARNING: No matching vertex for " + target.name + " in spline " + formattedPrint s format:"u" + " at knot " + formattedPrint k format:"u")
@@ -993,18 +1108,22 @@ struct VMeshLibrary (
 
 		local meshes = GetPartLevels target &wireShape
 
+		-- Parse levels into buffer and 
 		for i = 1 to meshes.count do (
 			levelMesh = meshes[i]
-			meshData  = AddMesh levelMesh filename
+			meshData  = CreateBuffer levelMesh filename
 			meshRef   = meshData.Parse levelMesh materialLib:materialLib textureLib:textureLib progress:progress
 
 			ranges[i + 1] = levelMesh.range
 
-			-- Set wireframe if available
-			if wireframes and wireframe == undefined and superClassOf wireShape == shape and wireShape.parent == levelMesh then wireframe = ParseShape wireShape meshRef target.transform epsilon:target.wireSnap progress:progress
+			-- Set LOD wireframe
+			if wireframes and wireframe == undefined and wireShape != undefined and wireShape.parent == levelMesh then wireframe = ParseMeshShape wireShape meshRef target.transform epsilon:target.wireSnap progress:progress
 
 			levels[i] = meshRef
 		)
+
+		-- Freeform wireframe
+		if wireframe == undefined and wireShape != undefined then wireframe = ParseFreeShape wireShape (CreateBuffer wireShape filename) target.transform progress:progress
 
 		OK
 	),
@@ -1018,7 +1137,11 @@ struct VMeshLibrary (
 			for id in (if filter == unsupplied then reader.GetFolders() else filter) where GetMesh id == undefined do (
 				if not reader.OpenFolder id then throw ("Error reading " + formatID (MAXLancer.Hash id))
 
-				(meshData = VMeshData filename:(reader.ReadName reader.entry.nameOffset)).ReadUTF reader buffers:buffers
+				meshData = VMeshData filename:(reader.ReadName reader.entry.nameOffset)
+
+				MAXLancer.WriteLog ("Reading " + meshData.filename + " mesh buffer")
+
+				meshData.ReadUTF reader buffers:buffers
 
 				append meshes meshData
 				reader.CloseFolder() -- Close meshData.filename
@@ -1040,6 +1163,8 @@ struct VMeshLibrary (
 
 			for id in filter where (meshData = GetMesh id) != undefined do (
 				if not writer.OpenFolder meshData.filename then throw ("Error writing " + meshData.filename)
+
+				MAXLancer.WriteLog ("Writing " + meshData.filename + " mesh buffer")
 
 				meshData.WriteUTF writer
 				writer.CloseFolder() -- Close meshData.filename
@@ -1154,7 +1279,7 @@ fn WriteWireframe writer wireframe = (
 	if classOf writer != UTFWriter then throw "Invalid UTFWriter object"
 
 	-- Write wireframe
-	if classOf wireframe == VWireData then (
+	if classOf wireframe == VWireData and wireframe.indices.count > 0 then (
 		if not writer.OpenFolder "VMeshWire" then throw "Error writing VMeshWire"
 
 		wireframe.WriteUTF writer

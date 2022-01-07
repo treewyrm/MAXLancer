@@ -1,4 +1,4 @@
-macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" iconName:"MAXLancer/toolbar" (
+macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"MAXLancer Panel" iconName:"MAXLancer/toolbar" (
 	global MAXLancer
 
 	local toolboxFloater      -- RolloutFloater
@@ -9,6 +9,18 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		if hasProperty MAXLancer property then setProperty MAXLancer property value else throw ("Missing MAXLancer property: " + property as string)
 		MAXLancer.config.SaveProperty "MAXLancer" (property as string) value
 		OK
+	)
+
+	rollout GeneralRollout "General" (
+		spinner hashDecimalSpinner "Export vertex precision:" range:[0,8,3] type:#integer
+
+		fn Apply = (
+			ApplyProperty #hashDecimal hashDecimalSpinner.value
+		)
+
+		on GeneralRollout open do (
+			hashDecimalSpinner.value = MAXLancer.hashDecimal
+		)
 	)
 
 	rollout AnimationRollout "Animation" (
@@ -31,6 +43,8 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 	)
 	
 	rollout HelpersRollout "Helpers" (
+		label description "These sizes are applied to imported helpers."
+		
 		spinner partSizeSpinner "Model part size:" 
 		spinner hardpointSizeSpinner "Hardpoint size size:"
 
@@ -107,6 +121,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		button cancelButton "Cancel" width:120 height:24 pos:[288, 416]
 		
 		on SettingsRollout open do (
+			AddSubRollout categories GeneralRollout rolledUp:true
 			AddSubRollout categories ExternalPathsRollout rolledUp:true
 			AddSubRollout categories HelpersRollout rolledUp:true
 			AddSubRollout categories AnimationRollout rolledUp:true
@@ -155,12 +170,20 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			versionLabel.text = "Version " + MAXLancer.version as string
 		)
 	)
-
-	-- Rescales rigid models
-	rollout RescaleRollout "Rescale Model" (
-		spinner scaleSpinner "Scale Factor" type:#float range:[0.001, 1000, 1]
-		button scaleButton "Apply" height:24 width:88 tooltip:"Rescale compound model with all sub-parts."
-
+	
+	rollout ModelToolsRollout "Model Tools" (
+		group "Rescale Model" (
+			spinner scaleSpinner "Scale Factor" type:#float range:[0.001, 1000, 1]
+			button applyScaleButton "Apply" height:24 width:88 tooltip:"Rescale compound model with all sub-parts."
+		)
+		
+		group "Flip UVs" (
+			spinner mapSpinner "Map Channel" range:[1, 99, 1] type:#integer
+			
+			button flipUButton "Flip U" width:76 height:24 align:#left across:2 tooltip:"Flip U texture coordinate for map channel in selected editable meshes."
+			button flipVButton "Flip V" width:76 height:24 align:#right tooltip:"Flip V texture coordinate for map channel in selected editable meshes."
+		)
+		
 		fn ScaleMesh target multiplier = (
 			in coordsys local for v = 1 to getNumVerts target do setVert target v (getVert target v * multiplier)
 			update target
@@ -175,7 +198,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			OK
 		)
 
-		fn ScaleModel root multiplier = (
+		mapped fn ScaleModel root multiplier = if MAXLancer.IsRigidPartHelper root and root.parent == undefined then (
 			local queue = #(root), target, targetTM, offset
 			
 			while queue.count > 0 do (
@@ -196,7 +219,36 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			OK
 		)
 
-		on scaleButton pressed do if selection.count == 1 then ScaleModel selection[1] scaleSpinner.value
+		on applyScaleButton pressed do ScaleModel selection scaleSpinner.value
+		
+		mapped fn flipMapCoords target mode: mapChannel:1 = if classOf target == Editable_mesh then (
+			local flippedVerts = #{}
+			local mapVertices
+			local mapCoords
+
+			for f = 1 to getNumFaces target do (
+				mapVertices = meshop.getMapFace target mapChannel f
+
+				for i = 1 to 3 where not flippedVerts[mapVertices[i]] do (
+					mapCoords = meshOp.getMapVert target mapChannel mapVertices[i]
+					
+					case mode of (
+						1: mapCoords.x = 1 - mapCoords.x
+						2: mapCoords.y = 1 - mapCoords.y
+						3: mapCoords.z = 1 - mapCoords.z
+					)
+
+					meshOp.setMapVert target mapChannel mapVertices[i] mapCoords
+					flippedVerts[mapVertices[i]] = true
+				)
+			)
+
+			update target
+			OK
+		)
+			
+		on flipUButton pressed do flipMapCoords selection mode:1 mapChannel:mapSpinner.value
+		on flipVButton pressed do flipMapCoords selection mode:2 mapChannel:mapSpinner.value		
 	)
 
 	-- Object alignment tool (typically used to align hardpoints but limited to them)
@@ -210,10 +262,10 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		local right  -- Local right vector (Point3)
 		local up     -- Local up vector (Point3)
 		
-		spinner offsetSpinner "Offset" type:#float range:[-1000, 1000, 0] tooltip:"Vertical offset from surface"
+		spinner offsetSpinner "Offset" type:#float range:[-1000, 1000, 0] tooltip:"Vertical offset from surface."
 		radiobuttons directionType "Direction:" labels:#("X", "-X", "Y", "-Y", "Z", "-Z") columns:2 default:4
-		button alignButton "Select" height:24 width:88
-		
+		button alignButton "Select" height:24 width:88 tooltip:"Align selected object to target object mesh surface."
+			
 		tool AlignmentTool (
 
 			-- Remember where object was
@@ -347,26 +399,51 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 	-- Rigid models utilities
 	rollout RigidModelsRollout "Rigid Models" (
 
-		spinner sizeSpinner "Helper Size:" range:[0,100,1] type:#float
-		button applySizeButton "Apply" width:88 height:24 align:#center tooltip:"Adjust size for all selected rigid part helpers."
-		
-		-- label VMeshLabel "Level of Detail:" align:#left
-		-- button setVMeshButton   "Set"   width:76 height:24 across:2 align:#left tooltip:"Marks selected editable meshes as exportable levels of detail."
-		-- button unsetVMeshButton "Unset" width:76 height:24 align:#right tooltip:"Unmarks selected editable meshes from exporting as levels of detail."
+		local targetPart      -- RigidPartHelper (ex: startboard_wing)
+		local targetHardpoint -- HardpointHelper (ex: DpStarboardWing)
+		local damagePart      -- RigidPartHelper (ex: dmg_starboard_wing)
+		local damageHardpoint -- HardpointHelper (ex: DpConnect)
 
+		group "Helper Display" (
+			spinner sizeSpinner "Size:" range:[0,100,1] type:#float
+			button applySizeButton "Apply" width:88 height:24 align:#center tooltip:"Adjust size for all selected rigid part helpers."
+		)
+
+		group "Joint Type" (
+			button applyFixedJointButton "Fixed" width:76 height:24 across:2 align:#left
+			button applyRevoluteJointButton "Revolute" width:76 height:24 align:#right
+			button applyPrismaticJointButton "Prismatic" width:76 height:24 across:2 align:#left
+			button applyCylinderJointButton "Cylinder" width:76 height:24 align:#right
+			button applySphereJointButton "Sphere" width:76 height:24 across:2 align:#left
+			button applyLooseJointButton "Loose" width:76 height:24 align:#right
+		)
+		
 		group "Levels of Detail" (
 			spinner levelSpinner "Level:" range:[0,12,0] type:#integer tooltip:"Sets this level to all selected meshes."
 			spinner distanceSpinner "View Distance:" range:[0, 3.4e38, 100] type:#float tooltip:"Sets this view distance to all selected meshes."
-
+			
 			button applyLevelsButton "Apply" width:76 height:24 align:#left across:2 tooltip:"Applies level of detail attributes to selected editable meshes."
 			button clearLevelsButton "Clear" width:76 height:24 align:#right tooltip:"Removes level of detail attributes from selected editable meshes."
+		)
+		
+		group "Vertex Data" (
+			checkbox colorsCheckbox "Color and Transparency" tooltip:"Export vertex colors (map channels -2 and 0)."
+			dropdownlist normalsList "Normals Acquisition Method:" items:#("None", "Auto/Explicit", "Smoothing Groups", "Per-Vertex")
+			spinner mapsSpinner "UV Maps:" type:#integer range:[0, 8, 1] tooltip:"Export texture maps (map channels 1 to 8)."
+			
+			button applyVertexDataButton "Apply" width:88 height:24 align:#center tooltip:"Apply vertex data settings to all selected LOD meshes."
 		)
 
 		group "Collision Surfaces" (
 			button applySurfaceMaterialButton "Apply Material" width:128 height:24 align:#center tooltip:"Applies default transparent red material to meshes. Doesn't affect anything."
 			button convertMeshesToHullsButton "Generate Surfaces" width:128 height:24 align:#center tooltip:"Creates convex hulls from selected meshes."
-			checkbox deleteMeshesCheckbox "Auto-Delete Meshes" tooltip:"Removes original meshes from which convex hulls were generated."
+			checkbox deleteMeshesCheckbox "Auto-Delete" across:2 tooltip:"Removes original meshes from which convex hulls were generated."
 			checkbox mergeHullsCheckbox "Merge Hulls" tooltip:"Merges hulls into single mesh."
+		)
+
+		group "Destructible Parts" (
+			button assignDestructibleButton "Assign" width:76 height:24 across:2 align:#left
+			button removeDestructibleButton "Remove" width:76 height:24 align:#right
 		)
 
 		group "Miscellaneous" (
@@ -375,7 +452,67 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 			button centerPivotButton "Reset Center Pivots" width:128 height:24 align:#center tooltip:"Resets pivot for selected editable meshes."
 		)
 
-		on createWireframesButton pressed do for target in selection where classOf target == Editable_mesh do (
+		fn filterTargetPart target = MAXLancer.IsRigidPartHelper target and MAXLancer.IsRigidPartHelper target.parent 
+
+		fn filterDamagePart target = MAXLancer.IsRigidPartHelper target and target.parent == undefined
+
+		fn filterTargetHardpoint target = targetPart != undefined and damagePart != undefined and MAXLancer.IsHardpointHelper target and target.parent == targetPart.parent
+
+		on assignDestructibleButton pressed do (
+			targetPart = if selection.count == 1 and filterTargetPart selection[1] then selection[1] else pickObject message:"Pick target part" filter:filterTargetPart
+
+			if isValidNode targetPart then (
+				damagePart = pickObject message:"Pick damage model" filter:filterDamagePart rubberBand:targetPart.transform.translationpart
+
+				if isValidNode damagePart then (
+					damageHardpoint = MAXLancer.FindHardpoint damagePart "DpConnect"
+					targetHardpoint = pickObject message:"Pick target hardpoint" filter:filterTargetHardpoint rubberBand:(if damageHardpoint != undefined then damageHardpoint.transform.translationpart else damagePart.transform.translationpart)
+
+					if isValidNode targetHardpoint then (
+						if queryBox ("Do you want to assign " + damagePart.name + " as damage model to part " + targetPart.name + " (" + targetHardpoint.name + ")?") beep:false then (
+							if damageHardpoint == undefined then (
+								damageHardpoint = copy targetHardpoint
+
+								damageHardpoint.name = "DpConnect"
+								damageHardpoint.parent = damagePart
+							)
+							
+							local controller = damagePart.transform.controller
+
+							if classOf controller != MAXLancer.HardpointLinkController then controller = damagePart.transform.controller = MAXLancer.HardpointLinkController()
+
+							controller.offset  = damageHardpoint.transform * inverse damagePart.transform
+							controller.target  = targetHardpoint
+							controller.preview = true
+							
+							targetPart.damageModel = damagePart
+						)
+					) else messageBox "No target hardpoint selected" beep:false
+				) else messageBox "No damage part selected" beep:false
+			) else messageBox "No target part selected" beep:false
+
+			OK
+		)
+
+		on removeDestructibleButton pressed do (
+			local targetPart = if selection.count == 1 and MAXLancer.IsRigidPartHelper selection[1] then selection[1] else pickObject message:"Pick target part" filter:MAXLancer.IsRigidPartHelper
+
+			if isValidNode targetPart and isValidNode targetPart.damageModel then (
+				targetPart.damageModel.transform.controller = NewDefaultMatrix3Controller()
+				targetPart.damageModel = undefined
+			)
+
+			OK
+		)
+
+		on applyFixedJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.FixedJointController()
+		on applyRevoluteJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.AxisJointController type:1
+		on applyPrismaticJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.AxisJointController type:2
+		on applyCylinderJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.AxisJointController type:3
+		on applySphereJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.SphericJointController() 
+		on applyLooseJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.LooseJointController()
+		
+		mapped fn createWireframe target = if classOf target == Editable_mesh then (
 			local wireframe = MAXLancer.GenerateWireframe target
 
 			if numSplines wireframe == 0 then delete wireframe else (
@@ -383,16 +520,36 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 				wireframe.parent = target
 				wireframe.name = target.name + "_Wire"
 			)
+			
+			OK
 		)
+		
+		mapped fn applyLevels target level range = if classOf target == Editable_mesh then (
+			MAXLancer.SetVMesh target
+			
+			local a = custAttributes.get target MAXLancer.VMeshAttributes
+			
+			a.level = level
+			a.range = range
+			OK
+		)
+		
+		mapped fn applyVertexData target colors normals mapCount = if MAXLancer.IsRigidLevel target then (
+			local a = custAttributes.get target MAXLancer.VMeshAttributes
+			
+			a.colors = colors
+			a.normals = normals
+			a.maps = mapCount
+			OK
+		)
+		
+		on createWireframesButton pressed do createWireframe selection
 
 		on applySizeButton pressed do MAXLancer.SetRigidPartSize selection sizeSpinner.value
 
-		on applyLevelsButton pressed do for target in selection where classOf target == Editable_mesh do (
-			MAXLancer.SetVMesh target
-
-			target.level = levelSpinner.value
-			target.range = distanceSpinner.value
-		)
+		on applyLevelsButton pressed do applyLevels selection levelSpinner.value distanceSpinner.value
+			
+		on applyVertexDataButton pressed do applyVertexData selection colorsCheckbox.checked normalsList.selection mapsSpinner.value
 		
 		on clearLevelsButton pressed do MAXLancer.UnsetVMesh selection
 
@@ -406,9 +563,6 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 
 		on centerPivotButton pressed do CenterPivot selection
-
-		-- on setVMeshButton pressed do MAXLancer.SetVMesh selection
-		-- on unsetVMeshButton pressed do MAXLancer.UnsetVMesh selection
 
 		on applySurfaceMaterialButton pressed do for target in selection where classOf target == Editable_mesh do target.material = MAXLancer.surfaceMaterial
 
@@ -431,72 +585,51 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		)
 	)
 
-	-- Flip coordinates in UV channels
-	rollout FlipTexturesRollout "Flip UVs" (
-
-		checkbox flipUCheckbox "Horizontal" across:2
-		checkbox flipVCheckbox "Vertical"
-
-		spinner mapSpinner "Map Channel" range:[1, 99, 1] type:#integer
-
-		button flipButton "Flip" width:76 height:24
-
-		on flipButton pressed do (
-			for target in (for o in selection where classOf o == Editable_mesh collect o) do (
-				local flippedVerts = #{}
-				local mapVertices
-				local mapCoords
-
-				for f = 1 to getNumFaces target do (
-					mapVertices = meshop.getMapFace target mapSpinner.value f
-
-					for i = 1 to 3 where not flippedVerts[mapVertices[i]] do (
-						mapCoords = meshOp.getMapVert target mapSpinner.value mapVertices[i]
-						
-						if flipUCheckbox.checked then mapCoords.x = 1 - mapCoords.x
-						if flipVCheckbox.checked then mapCoords.y = 1 - mapCoords.y
-
-						meshOp.setMapVert target mapSpinner.value mapVertices[i] mapCoords
-						flippedVerts[mapVertices[i]] = true
-					)
-				)
-
-				update target
-			)
-		)
-	)
-
 	-- Hardpoint tools and management
 	rollout HardpointsRollout "Hardpoints" (
 		local source
 		local target
 		
-		spinner baseSizeSpinner "Base Size:"   range:[0,100,1] type:#float
-		spinner arrowSizeSpinner "Arrow Size:" range:[0,100,1] type:#float
-		button applyButton "Apply" width:88 height:24 align:#center
+		group "Helper Display" (
+			spinner baseSizeSpinner "Base:"   range:[0,100,1] type:#float across:2
+			spinner arrowSizeSpinner "Arrow:" range:[0,100,1] type:#float
+			button applyButton "Apply" width:88 height:24 align:#center tooltip:"Apply helper display sizes to selected hardpoints."
+		)
+
+		group "Type && Limits" (
+			dropdownlist typeList "Constraint Type" items:#("Fixed", "Revolute", "Prismatic")
+			spinner limitMinSpinner "Min:" type:#float range:[-3.4e38, 3.4e38, 0] scale:0.5 across:2
+			spinner limitMaxSpinner "Max:" type:#float range:[-3.4e38, 3.4e38, 0] scale:0.5
+			button limitApplyButton "Apply" width:88 height:24 align:#center tooltip:"Apply constraint type and limit min/max values to selected hardpoints."
+		)
+
+		group "Collision Hull" (
+			dropdownlist hullShapeList "Shape Type" items:#("None", "Box (Gun)", "Box (Gun Centered)", "Hemisphere (Turret)", "Cylinder (Equipment)")
+			spinner hullSizeSpinner "Hull Size:" type:#float range:[0, 100, 1]
+			button hullApplyButton "Apply" width:88 height:24 align:#center tooltip:"Apply collision hull type and size to selected hardpoints."
+		)
 
 		group "Mirror Hardpoints" (
-			radiobuttons mirrorAxis "Axis:" labels:#("X", "Y", "Z") columns:3 default:1
-			button mirrorButton "Mirror" width:88 height:24 align:#center tooltip:"Mirrors hardpoints about root of model (or scene in leu of root) at specified axis with matrix correction"
+			checkbox mirrorFlipLimits "Flip revolute min/max limits" checked:true tooltip:"Flips min/max limits for revolute hardpoints."
+			button mirrorXButton "X" width:48 height:24 across:3 tooltip:"Mirrors hardpoints around root of model (or scene) by local X axis."
+			button mirrorYButton "Y" width:48 height:24 tooltip:"Mirrors hardpoints around root of model (or scene) by local Y axis."
+			button mirrorZButton "Z" width:48 height:24 tooltip:"Mirrors hardpoints around root of model (or scene) by local Z axis."
 		)
 		
-		group "Connect Hardpoints" (
-			button alignButton "Align"   width:76 height:24 across:2 align:#left tooltip:"Aligns source object hierarchy of source hardpoint to target hardpoint" across:2
-			button attachButton "Attach" width:76 height:24 align:#right tooltip:"Attaches source object hierarchy to source hardpoint to target hardpoint"
+		group "Miscellaneous" (
+			button alignButton "Align by Hardpoints" width:128 height:24 align:#center tooltip:"Aligns source object hierarchy of source hardpoint to target hardpoint."
+			button replaceButton "Convert to Hardpoints" width:128 height:24 align:#center tooltip:"Replaces selected objects with hardpoint helpers while retaining original transform and parent node"
 		)
-
-		button replaceButton "Convert to Hardpoints" width:128 height:24 align:#center tooltip:"Replaces selected objects with hardpoint helpers while retaining original transform and parent node"
-
-		on mirrorButton pressed do for source in selection where MAXLancer.IsHardpointHelper source do (
+		
+		mapped fn mirrorHardpoint source axis flipLimits = if MAXLancer.IsHardpointHelper source then (
 			local root   = MAXLancer.GetRootFromHardpoint source
-			local uname  = uniqueName source.name numDigits:2
 			local target = copy source -- Create a copy of helper node
 			local matrix = if isValidNode root then root.transform else Matrix3 1
 				
-			target.name = uname
+			target.name = uniqueName source.name numDigits:2
 			source.layer.addNode target
 			
-			local scaler = case mirrorAxis.state of (
+			local scaler = case axis of (
 				1: [-1, 1, 1]
 				2: [1, -1, 1]
 				3: [1, 1, -1]
@@ -508,15 +641,31 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 				scale target [-1, -1, -1]
 				rotate target (quat 180 x_axis)
 			)
+
+			if flipLimits and target.type == 2 then (
+				target.limitMin = -source.limitMax
+				target.limitMax = -source.limitMin
+			)
 			
-			-- Lastly flip limits around
-			local limits = [source.limitMin, source.limitMax]
-			
-			target.limitMin = -limits.y
-			target.limitMax = -limits.x
+			OK
+		)
+		
+		on applyButton pressed do MAXLancer.SetHardpointSize selection baseSizeSpinner.value arrowSizeSpinner.value
+
+		on limitApplyButton pressed do for source in selection where MAXLancer.IsHardpointHelper source do (
+			source.type = typeList.selection
+			source.limitMin = limitMinSpinner.value
+			source.limitMax = limitMaxSpinner.value
 		)
 
-		on applyButton pressed do MAXLancer.SetHardpointSize selection baseSizeSpinner.value arrowSizeSpinner.value
+		on hullApplyButton pressed do for source in selection where MAXLancer.IsHardpointHelper source do (
+			source.hullShape = hullShapeList.selection
+			source.hullSize = hullSizeSpinner.value
+		)
+		
+		on mirrorXButton pressed do mirrorHardpoints selection 1 mirrorFlipLimits.checked
+		on mirrorYButton pressed do mirrorHardpoints selection 2 mirrorFlipLimits.checked
+		on mirrorZButton pressed do mirrorHardpoints selection 3 mirrorFlipLimits.checked
 
 		fn FilterSource hardpoint = MAXLancer.IsHardpointHelper hardpoint
 		fn FilterTarget hardpoint = MAXLancer.IsHardpointHelper hardpoint and hardpoint != source
@@ -525,7 +674,6 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		fn PickTarget = (target = pickObject message:"Pick target hardpoint" count:1 filter:FilterTarget rubberBand:source.pos) != undefined
 
 		on alignButton pressed do if PickSource() and PickTarget() then MAXLancer.AttachHardpoints source target attach:false
-		on attachButton pressed do if PickSource() and PickTarget() then MAXLancer.AttachHardpoints source target attach:true
 
 		on replaceButton pressed do (
 			local items = selection as array
@@ -557,7 +705,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		dotNetControl lightsListView "System.Windows.Forms.ListView" width:160 height:120
 		
 		button refreshButton "Refresh" width:76 height:24 across:2 align:#left toolTip:"Reload light sources list." 
-		button applyButton "Apply" width:76 height:24 align:#right toolTip:"Apply settings to all MAXLancer shaders."
+		button applyButton "Apply" width:76 height:24 align:#right toolTip:"Apply settings to all MAXLancer shaders in scene."
 		
 		on lightsCheckbox changed state do MAXLancer.displayVertexLighting = state
 		on vertexColorCheckbox changed state do MAXLancer.displayVertexColors = state
@@ -669,14 +817,13 @@ macroScript Toolbox category:"MAXLancer" tooltip:"Toolbox" buttontext:"Toolbox" 
 		toolboxFloater = newRolloutFloater "MAXLancer Tools" 200 200
 		
 		addRollout ToolboxRollout toolboxFloater
-		addRollout AlignmentToolRollout toolboxFloater
-		addRollout RescaleRollout toolboxFloater
-		addRollout RigidModelsRollout toolboxFloater
-		addRollout HardpointsRollout toolboxFloater
-		addRollout TemplatesRollout toolboxFloater
-		addRollout ShaderDisplayRollout toolboxFloater
-		addRollout FlipTexturesRollout toolboxFloater
-		addRollout HashCalculatorRollout toolboxFloater
+		addRollout AlignmentToolRollout toolboxFloater rolledUp:true
+		addRollout ModelToolsRollout toolboxFloater rolledUp:true
+		addRollout RigidModelsRollout toolboxFloater rolledUp:true
+		addRollout HardpointsRollout toolboxFloater rolledUp:true
+		addRollout TemplatesRollout toolboxFloater rolledUp:true
+		addRollout ShaderDisplayRollout toolboxFloater rolledUp:true
+		addRollout HashCalculatorRollout toolboxFloater rolledUp:true
 		
 		ShaderDisplayRollout.InitView()
 		ShaderDisplayRollout.RefreshList()

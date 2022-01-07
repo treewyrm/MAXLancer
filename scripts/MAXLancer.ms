@@ -13,7 +13,7 @@ global MAXLancer = (
 	local FLMaterialAnimation, FLMaterialAnimationLibrary
 	local VMeshAttributes, VMeshRef, VMeshPart, VMultiLevel, VWireData, VMeshWire, VMeshGroup, VMeshData, VMeshLibrary
 	local HardpointHelper, HardpointFixed, HardpointRevolute, HardpointPrismatic
-	local FixedJointController, AxisJointController, SphericJointController, LooseJointController
+	local FixedJointController, AxisJointController, SphericJointController, LooseJointController, HardpointLinkController
 	local PartConstraint, JointFixed, JointRevolute, JointPrismatic, JointCylindric, JointSpheric, JointLoose, CompoundIterator
 	local RigidPartHelper, RigidPart, RigidCompound
 	local DeformableAttributes, DeformablePartHelper, DeformablePart, DeformableCompound
@@ -184,7 +184,7 @@ global MAXLancer = (
 	)
 
 	struct MAXLancerTools (
-		version   = 0.9,
+		version   = 0.91,
 		debug     = true,
 		config    = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
 		verbosity = 0,
@@ -216,6 +216,7 @@ global MAXLancer = (
 		AxisJointController,
 		SphericJointController,
 		LooseJointController,
+		HardpointLinkController,
 
 		convexGenerator = 1,
 		partSize        = 1.0,
@@ -230,6 +231,8 @@ global MAXLancer = (
 		animationSamplingRate      = 30,
 		animationSamplingThreshold = 0.0,
 		animationSamplingOverwrite = false, -- When non-linear controller is being sampled this flag will cause sampled controller to be written over previous one
+
+		hashDecimal = 3,
 
 		freelancerPath,   -- Path to Freelancer installation
 		texturesPath,     -- Path to textures
@@ -379,6 +382,12 @@ global MAXLancer = (
 			)
 
 			result -- Return array of Editable_mesh with VMeshAttributes
+		),
+
+		-- Get root rigid part helper and target hardpoint for damage model of rigid part
+		fn GetPartDamageModel target &root &hardpoint = if IsRigidPartHelper target and target.damageModel != undefined and classOf target.damageModel.transform.controller == HardpointLinkController then (
+			root = target.damageModel
+			hardpoint = root.transform.controller.target
 		),
 
 		-- Collect names of parts and hardpoints into hashmap
@@ -588,8 +597,8 @@ global MAXLancer = (
 			exporterVersion  = config.LoadProperty "MAXLancer" "exporterVersion"  default:("MAXLancer Tools " + version as string)
 			temporaryPath    = config.LoadProperty "MAXLancer" "temporaryPath"    default:(pathConfig.appendPath (GetDir #temp) "MAXLancer")
 			texturesPath     = config.LoadProperty "MAXLancer" "texturesPath"     default:(pathConfig.appendPath (GetDir #image) "MAXLancer")
-			textureToolsPath = config.LoadProperty "MAXLancer" "textureToolsPath" default:("C:\\NVTT\\bin64\\")
-			shadersPath      = config.LoadProperty "MAXLancer" "shadersPath"      default:(pathConfig.appendPath (GetDir #renderassets) "MAXLancer")
+			textureToolsPath = config.LoadProperty "MAXLancer" "textureToolsPath" default:(pathConfig.appendPath (GetFilenamePath (getThisScriptFilename())) "tools")
+			shadersPath      = config.LoadProperty "MAXLancer" "shadersPath"      default:(pathConfig.appendPath (GetDir #maxroot) "maps\\fx\\MAXLancer")
 			freelancerPath   = config.LoadProperty "MAXLancer" "freelancerPath"   default:(GetFreelancerPath())
 			convexGenerator  = config.LoadProperty "MAXLancer" "convexGenerator"  default:1    type:#number
 			partSize         = config.LoadProperty "MAXLancer" "partSize"         default:0.25 type:#number
@@ -599,10 +608,14 @@ global MAXLancer = (
 			animationSamplingThreshold = config.LoadProperty "MAXLancer" "animationSamplingThreshold" default:0.0   type:#number
 			animationSamplingOverwrite = config.LoadProperty "MAXLancer" "animationSamplingOverwrite" default:false type:#boolean
 
+			if not doesFileExist temporaryPath then makeDir temporaryPath all:true
+
 			WriteLog ("Temporary path:     " + temporaryPath)
 
 			if doesFileExist freelancerPath and getFileAttribute freelancerPath #directory then WriteLog ("Freelancer path:    " + freelancerPath)
 			else WriteError ("Missing freelancer path: " + freelancerPath)
+
+			if not doesFileExist texturesPath then makeDir texturesPath all:true
 
 			if doesFileExist texturesPath and getFileAttribute texturesPath #directory then WriteLog ("Textures path:      " + texturesPath)
 			else WriteError ("Missing textures path: " + texturesPath)
@@ -669,5 +682,6 @@ global MAXLancer = (
 		AxisJointController:        AxisJointController        \
 		SphericJointController:     SphericJointController     \
 		LooseJointController:       LooseJointController       \
+		HardpointLinkController:    HardpointLinkController    \
 		DeformableAttributes:       DeformableAttributes
 )
