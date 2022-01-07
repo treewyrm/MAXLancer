@@ -301,6 +301,8 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 				model.ReadUTF reader
 				reader.Close()
 
+				if MAXLancer.IsRigidPart model then model.filename = getFilenameFile filename
+
 				-- Initialize libraries
 				meshLib      = MAXLancer.CreateVMeshLibrary()
 				materialLib  = MAXLancer.CreateMaterialLibrary()
