@@ -1,9 +1,9 @@
 [Setup]
 AppName=MAXLancer
-AppVersion=0.91
+AppVersion=0.92
 Uninstallable=no
 WizardStyle=modern
-DefaultDirName={code:get3DsMaxDir}
+DefaultDirName={autopf}\MAXLancer
 DirExistsWarning=no
 OutputDir=.
 OutputBaseFilename=maxlancer-setup
@@ -11,7 +11,6 @@ SetupIconFile=maxlancer.ico
 DisableWelcomePage=no
 WizardImageFile=side_large.bmp
 WizardSmallImageFile=header_small.bmp
-InfoBeforeFile=intro.rtf
 
 [Files]
 Source: "..\scripts\*"; DestDir:"{app}\scripts\MAXLancer"
@@ -23,15 +22,70 @@ Source: "..\icons\*"; DestDir:"{app}\UI_ln\Icons\Dark\MAXLancer"
 Source: "..\icons\*"; DestDir:"{app}\UI_ln\Icons\Light\MAXLancer"
 
 [Code]
-function get3DsMaxDir(Dir: String): String; // Last 3Ds Max 32-bit version was 2013 therefore supported versions are only 64-bit
+var
+  SelectPage: TWizardPage;
+  SelectComboBox: TNewComboBox;
+  ProductNames: TStringList;
+  Installdirs: TStringList;
+
+procedure SelectComboBoxChange(Sender: TObject);
 begin
-  if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\23.0', 'Installdir', result)) then // 2021
-  if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\22.0', 'Installdir', result)) then // 2020
-  if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\21.0', 'Installdir', result)) then // 2019
-  if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\20.0', 'Installdir', result)) then // 2018
-  if not(RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\19.0', 'Installdir', result)) then
+  if SelectComboBox.ItemIndex < InstallDirs.Count then WizardForm.DirEdit.Text := InstallDirs[SelectComboBox.ItemIndex];
+end;
+  
+procedure InitializeWizard;
+var
+  Subkeys: TArrayOfString;
+  ProductName: String;
+  Installdir: String;
+  SelectLabel: TLabel;
+  I: Integer;
+begin
+
+  // Get all subkeys (versions) from registry.
+  if RegGetSubkeyNames(HKLM64, 'SOFTWARE\Autodesk\3dsMax', Subkeys) then
   begin
-    MsgBox('Cannot find 3ds Max installation. Please specify path manually.', mbError, MB_OK);
-    result := 'C:\MAXLancer';
+    ProductNames := TStringList.Create;
+    Installdirs := TStringList.Create;
+
+    // Loop through subkeys and collect ProductName and Installdir.
+    for I := 0 to GetArrayLength(Subkeys) - 1 do
+      if RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\' + SubKeys[I], 'ProductName', ProductName) and RegQueryStringValue(HKLM64, 'SOFTWARE\Autodesk\3dsMax\' + Subkeys[I], 'Installdir', Installdir) then
+      begin
+        ProductNames.Add(ProductName);
+        InstallDirs.Add(Installdir);
+      end;
+
+    // If any installations are found present with version selection page.
+    if ProductNames.Count > 0 then
+    begin
+      SelectPage := CreateCustomPage(wpInfoBefore, 'Product version', 'Select Autodesk 3ds Max version.');
+
+      SelectLabel := TLabel.Create(WizardForm);
+      SelectLabel.Parent := SelectPage.Surface;
+      SelectLabel.Left := 0;
+      SelectLabel.Top := 0;
+      SelectLabel.Caption := 'Products found:';
+
+      SelectComboBox := TNewComboBox.Create(WizardForm);
+      SelectComboBox.Parent := SelectPage.Surface;
+      SelectComboBox.Left := 0;
+      SelectComboBox.Top := SelectLabel.Top + SelectLabel.Height + 20;
+      SelectComboBox.Width := SelectPage.Surface.Width;
+      SelectComboBox.Anchors := [akLeft, akRight, akTop];
+      SelectComboBox.Style := csDropDownList;
+      SelectComboBox.OnChange := @SelectComboBoxChange;
+
+      // Populate dropdown list.
+      for I := 0 to ProductNames.Count - 1 do
+        SelectComboBox.Items.Add(ProductNames[I]);
+
+      // Auto-select first entry.
+      if SelectComboBox.Items.Count > 0 then
+      begin
+        SelectComboBox.ItemIndex := 0;
+        SelectComboBoxChange(WizardForm);
+      end;
+    end;
   end;
 end;
