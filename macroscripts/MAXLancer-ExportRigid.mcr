@@ -295,28 +295,24 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		)
 		
 		fn ListCamera part parent = (
-			local camera = MAXLancer.GetPartCamera part
+			local child = parent.Nodes.Add ("Camera")
 
-			if camera != undefined then (
-				local child = parent.Nodes.Add ("Camera")
-
-				child.Nodes.Add ("FovX: " + formattedPrint camera.fovX format:".2f")
-				child.Nodes.Add ("FovY: " + formattedPrint camera.fovY format:".2f")
-				child.Nodes.Add ("ZNear: " + formattedPrint camera.zNear format:".2f")
-				child.Nodes.Add ("ZFar: " + formattedPrint camera.zFar format:".2f")
-			)
+			child.Nodes.Add ("Fov X: " + formattedPrint part.fovX format:".2f")
+			child.Nodes.Add ("Fov Y: " + formattedPrint part.fovY format:".2f")
+			child.Nodes.Add ("zNear Clip: " + formattedPrint part.zNear format:".2f")
+			child.Nodes.Add ("zFar Clip: " + formattedPrint part.zFar format:".2f")
 
 			OK
 		)
 
-
 		fn ListPart part parent = (
 			partCount += 1
 
-			ListLevels     part parent
-			ListHardpoints part parent
-			ListHulls      part parent
-			ListCamera     part parent
+			if part.isCamera then ListCamera part parent else (
+				ListLevels     part parent
+				ListHardpoints part parent
+				ListHulls      part parent
+			)
 
 			if compound then ListAnimations part parent
 
@@ -345,7 +341,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				-- Check dmg_hp to be in part parent
 				if hardpoint.parent != part.parent then throw ("Damage hardpoint " + hardpoint.name + " has invalid parent object.")
 
-				parent.Nodes.Add ("Damage part: " + model.name)				
+				parent.Nodes.Add ("Damage part: " + model.name)
 				ListPart model (treeBox.Nodes.Add (part.name + " (" + hardpoint.name + "): " + model.name))
 
 				append damageParts model

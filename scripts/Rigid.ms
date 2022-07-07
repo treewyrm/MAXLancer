@@ -19,6 +19,14 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 		damageModel type:#node       animatable:false
 	)
 
+	parameters CameraPartParameters rollout:CameraRollout (
+		isCamera type:#boolean animatable:false ui:isCameraCheckbox default:false
+		fovX     type:#float   animatable:false ui:fovXSpinner      default:45.0
+		fovY     type:#float   animatable:false ui:fovYSpinner      default:45.0
+		zNear    type:#float   animatable:false ui:zNearSpinner     default:0.001
+		zFar     type:#float   animatable:false ui:zFarSpinner      default:1000.0
+	)
+
 	fn filterRigidPart target = classOf target == RigidPartHelper
 	fn filterHardpoint target = classOf target == HardpointHelper
 
@@ -90,6 +98,15 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 		*/
 	)
 
+	rollout CameraRollout "Camera Parameters" (
+		checkbox isCameraCheckbox "Is Camera?" tooltip:"If enabled this part is used for camera placement. Used by ship cockpit models."
+
+		spinner fovXSpinner  "Fov X"     type:#float range:[0, 180, 45]
+		spinner fovYSpinner  "Fov Y"     type:#float range:[0, 180, 45]
+		spinner zNearSpinner "Near Clip" type:#float range:[0, 3.4e38, 0]
+		spinner zFarSpinner  "Far Clip"  type:#float range:[0, 3.4e38, 1000]
+	)
+
 	on getDisplayMesh do (
 		if size != lastSize then (
 			local vertices = #([size, 0, 0], [0, size, 0], [0, 0, size], [-size, 0, 0], [0, -size, 0], [0, 0, -size])
@@ -122,6 +139,8 @@ struct RigidPart (
 	hardpoints = #(), -- Array of HardpointFixed/HardpointRevolute/HardpointPrismatic
 	wireframe,        -- HUD wireframe (VWireData)
 	camera,           -- Cockpit camera
+
+	fn GetFilenameExtension = if classOf camera == CameraPart then ".cam" else ".3db",
 
 	fn GetHashList hashes names = (
 		if appendIfUnique hashes (MAXLancer.hash name) then append names name
@@ -178,10 +197,14 @@ struct RigidPart (
 
 		MAXLancer.WriteLog ("Reading rigid part: " + name)
 
-		ReadLevels     reader &levels &ranges
-		ReadWireframe  reader &wireframe
-		ReadHardpoints reader &hardpoints
-		ReadCamera     reader &camera
+		if reader.OpenFolder "Camera" then (
+			(camera = CameraPart()).ReadUTF reader
+			reader.CloseFolder() -- Close Camera
+		) else (
+			ReadLevels     reader &levels &ranges
+			ReadWireframe  reader &wireframe
+			ReadHardpoints reader &hardpoints
+		)
 
 		OK
 	),
@@ -192,10 +215,16 @@ struct RigidPart (
 
 		MAXLancer.WriteLog ("Writing rigid part: " + name)
 
-		WriteLevels     writer levels ranges
-		WriteWireframe  writer wireframe
-		WriteHardpoints writer hardpoints
-		WriteCamera     writer camera
+		if classOf camera == CameraPart then (
+			if not writer.OpenFolder "Camera" then throw "Error writing Camera"
+
+			camera.WriteUTF writer
+			writer.CloseFolder() -- Close Camera
+		) else (
+			WriteLevels     writer levels ranges
+			WriteWireframe  writer wireframe
+			WriteHardpoints writer hardpoints
+		)		
 
 		OK
 	),
@@ -209,10 +238,17 @@ struct RigidPart (
 		local result = RigidPartHelper name:helperName size:size transform:origin
 		AddToLayer "Parts" result
 
-		if classOf camera == CameraPart then BuildCamera result this.camera
-		if hardpoints then BuildHardpoints result this.hardpoints
-		if classOf meshLib == VMeshLibrary then meshLib.BuildLevels result levels ranges wireframe wireframes:wireframes boundaries:boundaries materialLib:materialLib textureLib:textureLib progress:progress
-		
+		if classOf camera == CameraPart then (
+			result.isCamera = true
+			result.fovX     = camera.fovX
+			result.fovY     = camera.fovY
+			result.zNear    = camera.zNear
+			result.zFar     = camera.zFar
+		) else (
+			if hardpoints then BuildHardpoints result this.hardpoints
+			if classOf meshLib == VMeshLibrary then meshLib.BuildLevels result levels ranges wireframe wireframes:wireframes boundaries:boundaries materialLib:materialLib textureLib:textureLib progress:progress
+		)
+
 		result -- Return RigidPartHelper
 	),
 
@@ -231,17 +267,18 @@ struct RigidPart (
 		 * pass into function and only then set into properties.
 		 */
 
-		local partLevels     -- Array of VMeshRef
-		local partRanges     -- Array of Float
-		local partWireframe  -- VWireData
+		if target.isCamera then camera = CameraPart fovX:target.fovX fovY:target.fovY zNear:target.zNear zFar:target.zFar else (
+			local partLevels     -- Array of VMeshRef
+			local partRanges     -- Array of Float
+			local partWireframe  -- VWireData
 
-		if hardpoints then ParseHardpoints target &this.hardpoints
-		if classOf meshLib == VMeshLibrary then meshLib.ParseLevels target filename &partLevels &partRanges &partWireframe wireframes:wireframes materialLib:materialLib textureLib:textureLib progress:progress
-		
-		levels    = partLevels
-		ranges    = partRanges
-		wireframe = partWireframe
-		camera    = MAXLancer.GetPartCamera target
+			if hardpoints then ParseHardpoints target &this.hardpoints
+			if classOf meshLib == VMeshLibrary then meshLib.ParseLevels target filename &partLevels &partRanges &partWireframe wireframes:wireframes materialLib:materialLib textureLib:textureLib progress:progress
+			
+			levels    = partLevels
+			ranges    = partRanges
+			wireframe = partWireframe
+		)
 
 		OK
 	),

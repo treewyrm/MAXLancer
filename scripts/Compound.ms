@@ -403,13 +403,13 @@ fn WriteCompound writer root constraints scaler: timestamps:true = (
 	if constraints.count > 0 then WriteConstraints writer constraints
 
 	-- Set filename in root
-	root.filename = GetFilenameFile writer.filename + suffix + ".3db"
+	root.filename = GetFilenameFile writer.filename + suffix + root.GetFilenameExtension()
 
 	local parts = #(root) -- Array of *Part (includes root)
 
 	-- Set filename in subparts
 	for constraint in constraints do (
-		constraint.child.filename = constraint.child.name + suffix + ".3db"
+		constraint.child.filename = constraint.child.name + suffix + constraint.child.GetFilenameExtension()
 		append parts constraint.child
 	)
 
@@ -635,49 +635,4 @@ struct CameraPart (
 		writer.WriteFileFloat "Zfar"  zFar
 		OK
 	)
-)
-
-fn ReadCamera reader &camera = (
-	if classOf reader != UTFReader then throw "Invalid UTFReader object"
-
-	camera = undefined
-
-	if reader.OpenFolder "Camera" then (
-		(camera = CameraPart()).ReadUTF reader
-		reader.CloseFolder() -- Close Camera
-	)
-
-	OK
-)
-
-fn WriteCamera writer camera = (
-	if classOf writer != UTFWriter then throw "Invalid UTFWriter object"
-
-	-- Write wireframe
-	if classOf camera == CameraPart then (
-		if not writer.OpenFolder "Camera" then throw "Error writing Camera"
-
-		camera.WriteUTF writer
-		writer.CloseFolder() -- Close Camera
-	)
-
-	OK
-)
-
-fn BuildCamera target camera = (
-	if not isValidNode target then throw "Invalid target node."
-
-	local result = Freecamera parent:target transform:(rotateXMatrix 90 * target.transform) fov:camera.fovX clipManually:true nearclip:camera.zNear farclip:camera.zFar wireColor:target.wireColor
-	AddToLayer "Cameras" result
-
-	OK
-)
-
-fn ParseCamera target = (
-	if not isValidNode target then throw "Invalid target node."
-	if classOf target != Freecamera then throw "Invalid camera node."
-
-	local result = CameraPart fovX:target.fov zNear:target.nearclip zFar:target.farclip
-
-	result -- Return CameraPart
 )

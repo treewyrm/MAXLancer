@@ -392,15 +392,6 @@ global MAXLancer = (
 			OK
 		),
 
-		-- Get rigid part helper camera object as CameraPart
-		fn GetPartCamera target = if IsRigidPartHelper target then (
-			local camera -- Freecamera
-
-			for child in target.children while camera == undefined where classOf child == Freecamera do camera = child
-			
-			if camera != undefined then CameraPart fovX:camera.fov zNear:camera.nearclip zFar:camera.farclip
-		),
-
 		-- Collect names of parts and hardpoints into hashmap
 		fn GetModelHashes root names hashes parts:true hardpoints:true = (
 			local queue = #(root)
