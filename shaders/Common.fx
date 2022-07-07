@@ -20,6 +20,11 @@ RasterizerState TwoSided {
 	CullMode = NONE;
 };
 
+DepthStencilState DepthTestWrite {
+	DepthEnable    = TRUE;
+	DepthFunc      = LESS;
+};
+
 DepthStencilState DepthTestNoWrite {
 	DepthEnable    = TRUE;
 	DepthWriteMask = ZERO;

@@ -13,13 +13,16 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 
 	rollout GeneralRollout "General" (
 		spinner hashDecimalSpinner "Export vertex precision:" range:[0,8,3] type:#integer
+		checkbox writeDummyVMeshRefCheckbox "Write dummy mesh reference" align:#center
 
 		fn Apply = (
-			ApplyProperty #hashDecimal hashDecimalSpinner.value
+			ApplyProperty #hashDecimal        hashDecimalSpinner.value
+			ApplyProperty #writeDummyVMeshRef writeDummyVMeshRefCheckbox.checked
 		)
 
 		on GeneralRollout open do (
-			hashDecimalSpinner.value = MAXLancer.hashDecimal
+			hashDecimalSpinner.value           = MAXLancer.hashDecimal
+			writeDummyVMeshRefCheckbox.checked = MAXLancer.writeDummyVMeshRef
 		)
 	)
 
@@ -348,6 +351,35 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 			
 			animationListView.items.AddRange items
 			animationListView.Update()
+		)
+	)
+
+	rollout TextureAnimRollout "Texture Animation" (
+
+		spinner indexSpinner "Image Index:" type:#integer range:[0, 255, 0] tooltip:"Texture image index."
+
+		group "Grid" (
+			spinner columnsSpinner "Columns:" type:#integer range:[1, 32, 2] tooltip:"Columns count."
+			spinner rowsSpinner "Rows:" type:#integer range:[1, 32, 2] tooltip:"Rows count."
+		)
+
+		button generateButton "Generate" width:128 height:24 align:#center
+
+		on generateButton pressed do (
+			local outputText = StringStream ""
+			local height = 1.0 / rowsSpinner.value
+			local width = 1.0 / columnsSpinner.value
+			local x, y
+
+			for row = rowsSpinner.value to 1 by -1 do for column = 0 to columnsSpinner.value - 1 do (
+				x = column as float / columnsSpinner.value
+				y = row as float / rowsSpinner.value
+				
+				format "%\n%\n%\n%\n%\n" (indexSpinner.value) x y (x + width) (y - height) to:outputText
+			)	
+
+			if setclipboardText (outputText as string) == true then messageBox "Animation sequence copied into clipboard." beep:false
+			else messageBox "Unable to copy animation sequence into clipboard." beep:true
 		)
 	)
 	
@@ -822,6 +854,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 		addRollout RigidModelsRollout toolboxFloater rolledUp:true
 		addRollout HardpointsRollout toolboxFloater rolledUp:true
 		addRollout TemplatesRollout toolboxFloater rolledUp:true
+		addRollout TextureAnimRollout toolboxFloater rolledUp:true
 		addRollout ShaderDisplayRollout toolboxFloater rolledUp:true
 		addRollout HashCalculatorRollout toolboxFloater rolledUp:true
 		

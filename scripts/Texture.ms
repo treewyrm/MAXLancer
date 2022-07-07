@@ -298,6 +298,12 @@ struct FLTextureLibrary (
 		for t in textures do t.ToString stream
 	),
 
+	fn GeneratePlaceholder id = (
+		local placeholder = FLTexture filename:(formatID id) image:(bitmap width:64 height:64 color:(random white black))
+		append textures placeholder
+		placeholder
+	),
+
 	-- Get texture from library by ID (string or hash number)
 	fn GetTexture target = (
 		target = MAXLancer.hash target

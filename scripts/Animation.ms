@@ -546,8 +546,8 @@ struct AnimationLibrary (
 		)
 	),
 
-	fn BuildJointSpheric target scripts = (
-		local map, rotation
+	fn BuildJointSpheric target scripts deformable:false = (
+		local map, rotation, v
 
 		for item in scripts where (map = item.GetJointMap target.parent.name target.name) != undefined do (
 			rotation = GetLayerController target.transform.controller.rotation item.name
@@ -555,14 +555,17 @@ struct AnimationLibrary (
 
 			MAXLancer.WriteLog ("Applying spheric joint (" + target.name + ") animation: " + item.name)
 
-			for k = 1 to map.channel.count do (addNewKey rotation (map.channel.GetKeyTime k)).value = map.channel.GetRotation k
+			for k = 1 to map.channel.count do (addNewKey rotation (map.channel.GetKeyTime k)).value = (
+				v = map.channel.GetRotation k
+				if deformable then v * RotateZMatrix 90 else v
+			)
 		)
 
 		target.transform.controller.rotation.setLayerActive 1
 	),
 
-	fn BuildJointLoose target scripts = (
-		local map, position, rotation
+	fn BuildJointLoose target scripts deformable:false = (
+		local map, position, rotation, v
 
 		for item in scripts where (map = item.GetJointMap target.parent.name target.name) != undefined do (
 			position = GetLayerController target.transform.controller.position item.name
@@ -573,16 +576,23 @@ struct AnimationLibrary (
 
 			MAXLancer.WriteLog ("Applying loose joint (" + target.name + ") animation: " + item.name)
 
-			for k = 1 to map.channel.positions.count do (addNewKey position (map.channel.GetKeyTime k)).value = map.channel.GetPosition k -- * RotateXMatrix 90
-			for k = 1 to map.channel.rotations.count do (addNewKey rotation (map.channel.GetKeyTime k)).value = map.channel.GetRotation k
+			for k = 1 to map.channel.positions.count do (addNewKey position (map.channel.GetKeyTime k)).value = (
+				v = map.channel.GetPosition k
+				if deformable then [v.y, v.x, v.z] else v
+			)
+				
+			for k = 1 to map.channel.rotations.count do (addNewKey rotation (map.channel.GetKeyTime k)).value = (
+				v = map.channel.GetRotation k
+				if deformable then v * RotateZMatrix 90 else v 
+			)
 		)
 
 		target.transform.controller.position.setLayerActive 1
 		target.transform.controller.rotation.setLayerActive 1
 	),
 
-	fn BuildObject target scripts = (
-		local map, position, rotation, key
+	fn BuildObject target scripts deformable:false = (
+		local map, position, rotation, v
 
 		for item in scripts where (map = item.GetObjectMap target.name) != undefined do (
 			position = GetLayerController target.transform.controller.position item.name
@@ -593,14 +603,16 @@ struct AnimationLibrary (
 
 			MAXLancer.WriteLog ("Applying object (" + target.name + ") animation: " + item.name)
 
-			for k = 1 to map.channel.positions.count do (
-				key = addNewKey position (map.channel.GetKeyTime k)
-				key.value = map.channel.GetPosition k
-
-				if item.height != undefined then key.value += [0, 0, item.height]
+			for k = 1 to map.channel.positions.count do (addNewKey position (map.channel.GetKeyTime k)).value = (
+				v = map.channel.GetPosition k
+				if item.height != undefined then v += [0, 0, item.height]
+				if deformable then v * RotateZMatrix 90 else v
 			)
 
-			for k = 1 to map.channel.rotations.count do (addNewKey rotation (map.channel.GetKeyTime k)).value = map.channel.GetRotation k
+			for k = 1 to map.channel.rotations.count do (addNewKey rotation (map.channel.GetKeyTime k)).value = (
+				v = map.channel.GetRotation k
+				if deformable then v * RotateZMatrix 90 else v
+			)
 		)
 
 		target.transform.controller.position.setLayerActive 1
@@ -608,7 +620,7 @@ struct AnimationLibrary (
 	),
 
 	-- Walk through hierarchy of deformable skeleton and apply animations
-	fn Build root filter: attached:true = (
+	fn Build root filter: attached:true deformable:false = (
 		if not isValidNode root then throw "Invalid root node object."
 
 		local subparts = GetPartChildren root deep:true attached:true
@@ -638,15 +650,15 @@ struct AnimationLibrary (
 		)
 
 		-- Apply scripts to root
-		if classOf root.transform.controller == LooseJointController then BuildObject root items
+		if classOf root.transform.controller == LooseJointController then BuildObject root items deformable:deformable
 
 		-- Apply scripts to subparts
 		for subpart in subparts do (
 			case classOf subpart.transform.controller of (
 				FixedJointController:   ()
-				AxisJointController:    BuildJointAxis    subpart items
-				SphericJointController: BuildJointSpheric subpart items
-				LooseJointController:   BuildJointLoose   subpart items
+				AxisJointController:    BuildJointAxis    subpart items deformable:deformable
+				SphericJointController: BuildJointSpheric subpart items deformable:deformable
+				LooseJointController:   BuildJointLoose   subpart items deformable:deformable
 				default: throw (subpart.name + " is missing valid joint controller.")
 			)
 		)

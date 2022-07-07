@@ -15,6 +15,7 @@ struct INIConfig (
 			case type of (
 				#boolean: value as BooleanClass
 				#number: value as Number
+				#integer: value as Integer
 				#strings: FilterString value " "
 				#numbers: for v in FilterString value " " collect v as Number
 				#point2: (

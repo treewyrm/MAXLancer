@@ -121,6 +121,7 @@ struct RigidPart (
 	levels     = #(), -- Render mesh LODs (Array of VMeshRef)
 	hardpoints = #(), -- Array of HardpointFixed/HardpointRevolute/HardpointPrismatic
 	wireframe,        -- HUD wireframe (VWireData)
+	camera,           -- Cockpit camera
 
 	fn GetHashList hashes names = (
 		if appendIfUnique hashes (MAXLancer.hash name) then append names name
@@ -180,6 +181,7 @@ struct RigidPart (
 		ReadLevels     reader &levels &ranges
 		ReadWireframe  reader &wireframe
 		ReadHardpoints reader &hardpoints
+		ReadCamera     reader &camera
 
 		OK
 	),
@@ -193,6 +195,7 @@ struct RigidPart (
 		WriteLevels     writer levels ranges
 		WriteWireframe  writer wireframe
 		WriteHardpoints writer hardpoints
+		WriteCamera     writer camera
 
 		OK
 	),
@@ -202,10 +205,11 @@ struct RigidPart (
 		local helperName = if name.count > 0 then name else filename
 
 		MAXLancer.WriteLog ("Building rigid part: " + helperName)
-		
+
 		local result = RigidPartHelper name:helperName size:size transform:origin
 		AddToLayer "Parts" result
 
+		if classOf camera == CameraPart then BuildCamera result this.camera
 		if hardpoints then BuildHardpoints result this.hardpoints
 		if classOf meshLib == VMeshLibrary then meshLib.BuildLevels result levels ranges wireframe wireframes:wireframes boundaries:boundaries materialLib:materialLib textureLib:textureLib progress:progress
 		
@@ -233,10 +237,11 @@ struct RigidPart (
 
 		if hardpoints then ParseHardpoints target &this.hardpoints
 		if classOf meshLib == VMeshLibrary then meshLib.ParseLevels target filename &partLevels &partRanges &partWireframe wireframes:wireframes materialLib:materialLib textureLib:textureLib progress:progress
-
+		
 		levels    = partLevels
 		ranges    = partRanges
 		wireframe = partWireframe
+		camera    = MAXLancer.GetPartCamera target
 
 		OK
 	),

@@ -293,6 +293,22 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 
 			OK
 		)
+		
+		fn ListCamera part parent = (
+			local camera = MAXLancer.GetPartCamera part
+
+			if camera != undefined then (
+				local child = parent.Nodes.Add ("Camera")
+
+				child.Nodes.Add ("FovX: " + formattedPrint camera.fovX format:".2f")
+				child.Nodes.Add ("FovY: " + formattedPrint camera.fovY format:".2f")
+				child.Nodes.Add ("ZNear: " + formattedPrint camera.zNear format:".2f")
+				child.Nodes.Add ("ZFar: " + formattedPrint camera.zFar format:".2f")
+			)
+
+			OK
+		)
+
 
 		fn ListPart part parent = (
 			partCount += 1
@@ -300,6 +316,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			ListLevels     part parent
 			ListHardpoints part parent
 			ListHulls      part parent
+			ListCamera     part parent
 
 			if compound then ListAnimations part parent
 
@@ -351,12 +368,11 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 
 				joint = MAXLancer.GetCompoundJoint part root:(root == part)
 				type  = MAXLancer.GetJointType joint				
-				child = parent.Nodes.add (part.name + " (" + type + ")")
+				child = parent.Nodes.Add (part.name + " (" + type + ")")
 				
 				ListPart part child
 
 				if part != root then ListDamageModel part child
-				
 				if part == root then child.Expand()
 
 				for subpart in part.children where MAXLancer.IsRigidPartHelper subpart do append queue (DataPair child subpart)

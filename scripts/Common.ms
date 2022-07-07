@@ -119,6 +119,21 @@ fn WritePosition stream p = (
 	OK
 )
 
+-- Read point3 from stream (converted to 3ds Max, bone position with X axis length)
+fn ReadBonePosition stream p = (
+	p.y =  ReadFloat stream
+	p.z =  ReadFloat stream
+	p.x = -ReadFloat stream
+	OK
+)
+
+fn WriteBonePosition stream p = (
+	WriteFloat stream  p.y
+	WriteFloat stream  p.z
+	WriteFloat stream -p.x
+	OK
+)
+
 -- Read quat from stream (converted to 3ds Max, animation frames)
 fn ReadQuaternion stream q = (
 	q.w =  ReadFloat stream
@@ -518,7 +533,7 @@ fn GetPartChildren root deep:false attached:false = (
 
 		for child in parent.children do (
 			if attached and classOf child == HardpointHelper then append queue child
-			else if classOf child == classOf root then (
+			else if classOf child == classOf root or classOf child == BoneGeometry then (
 				append result child
 
 				if deep and child.children.count > 0 then append queue child

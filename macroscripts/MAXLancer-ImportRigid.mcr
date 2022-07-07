@@ -249,6 +249,19 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 			OK
 		)
 
+		fn ListCamera part parent = (
+			if part.camera != undefined then (
+				local child = parent.Nodes.Add "Camera"
+
+				child.Nodes.Add ("FovX: " + formattedPrint part.camera.fovX format:".2f")
+				child.Nodes.Add ("FovY: " + formattedPrint part.camera.fovY format:".2f")
+				child.Nodes.Add ("ZNear: " + formattedPrint part.camera.zNear format:".2f")
+				child.Nodes.Add ("ZFar: " + formattedPrint part.camera.zFar format:".2f")
+			)
+
+			OK
+		)
+
 		-- List RigidPart
 		fn ListPart part parent = (
 			partCount += 1
@@ -256,6 +269,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 			ListLevels     part parent
 			ListHardpoints part parent
 			ListHulls      part parent
+			ListCamera     part parent
 
 			if MAXLancer.IsRigidCompound model then ListAnimations part parent
 
@@ -277,6 +291,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 
 				type = if part == model.root then "Compound Root" else MAXLancer.GetJointType (model.GetPartJoint part)
 				child = parent.Nodes.add (part.name + " (" + type + ")")
+
 				ListPart part child
 				
 				if part == model.root then child.Expand()

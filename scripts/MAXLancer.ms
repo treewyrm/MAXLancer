@@ -14,7 +14,7 @@ global MAXLancer = (
 	local VMeshAttributes, VMeshRef, VMeshPart, VMultiLevel, VWireData, VMeshWire, VMeshGroup, VMeshData, VMeshLibrary
 	local HardpointHelper, HardpointFixed, HardpointRevolute, HardpointPrismatic
 	local FixedJointController, AxisJointController, SphericJointController, LooseJointController, HardpointLinkController
-	local PartConstraint, JointFixed, JointRevolute, JointPrismatic, JointCylindric, JointSpheric, JointLoose, CompoundIterator
+	local PartConstraint, CameraPart, JointFixed, JointRevolute, JointPrismatic, JointCylindric, JointSpheric, JointLoose, CompoundIterator
 	local RigidPartHelper, RigidPart, RigidCompound
 	local DeformableAttributes, DeformablePartHelper, DeformablePart, DeformableCompound
 	local SurfaceNodeHelper, SurfacePoint, SurfaceFace, SurfaceHull, SurfaceNode, SurfacePart, SurfaceLibrary
@@ -184,7 +184,7 @@ global MAXLancer = (
 	)
 
 	struct MAXLancerTools (
-		version   = 0.91,
+		version   = 0.95,
 		debug     = true,
 		config    = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
 		verbosity = 0,
@@ -233,6 +233,7 @@ global MAXLancer = (
 		animationSamplingOverwrite = false, -- When non-linear controller is being sampled this flag will cause sampled controller to be written over previous one
 
 		hashDecimal = 3,
+		writeDummyVMeshRef = true, -- Write dummy VMeshRef on export if part has no LOD
 
 		freelancerPath,   -- Path to Freelancer installation
 		texturesPath,     -- Path to textures
@@ -388,6 +389,16 @@ global MAXLancer = (
 		fn GetPartDamageModel target &root &hardpoint = if IsRigidPartHelper target and target.damageModel != undefined and classOf target.damageModel.transform.controller == HardpointLinkController then (
 			root = target.damageModel
 			hardpoint = root.transform.controller.target
+			OK
+		),
+
+		-- Get rigid part helper camera object as CameraPart
+		fn GetPartCamera target = if IsRigidPartHelper target then (
+			local camera -- Freecamera
+
+			for child in target.children while camera == undefined where classOf child == Freecamera do camera = child
+			
+			if camera != undefined then CameraPart fovX:camera.fov zNear:camera.nearclip zFar:camera.farclip
 		),
 
 		-- Collect names of parts and hardpoints into hashmap
@@ -594,15 +605,17 @@ global MAXLancer = (
 
 			if FLCRC.hashes.count != 0x100 then WriteError ("Invalid hash list: " + crcFilename)
 
-			exporterVersion  = config.LoadProperty "MAXLancer" "exporterVersion"  default:("MAXLancer Tools " + version as string)
-			temporaryPath    = config.LoadProperty "MAXLancer" "temporaryPath"    default:(pathConfig.appendPath (GetDir #temp) "MAXLancer")
-			texturesPath     = config.LoadProperty "MAXLancer" "texturesPath"     default:(pathConfig.appendPath (GetDir #image) "MAXLancer")
-			textureToolsPath = config.LoadProperty "MAXLancer" "textureToolsPath" default:(pathConfig.appendPath (GetFilenamePath (getThisScriptFilename())) "tools")
-			shadersPath      = config.LoadProperty "MAXLancer" "shadersPath"      default:(pathConfig.appendPath (GetDir #maxroot) "maps\\fx\\MAXLancer")
-			freelancerPath   = config.LoadProperty "MAXLancer" "freelancerPath"   default:(GetFreelancerPath())
-			convexGenerator  = config.LoadProperty "MAXLancer" "convexGenerator"  default:1    type:#number
-			partSize         = config.LoadProperty "MAXLancer" "partSize"         default:0.25 type:#number
-			hardpointSize    = config.LoadProperty "MAXLancer" "hardpointSize"    default:0.25 type:#number
+			exporterVersion    = config.LoadProperty "MAXLancer" "exporterVersion"    default:("MAXLancer Tools " + version as string)
+			temporaryPath      = config.LoadProperty "MAXLancer" "temporaryPath"      default:(pathConfig.appendPath (GetDir #temp) "MAXLancer")
+			texturesPath       = config.LoadProperty "MAXLancer" "texturesPath"       default:(pathConfig.appendPath (GetDir #image) "MAXLancer")
+			textureToolsPath   = config.LoadProperty "MAXLancer" "textureToolsPath"   default:(pathConfig.appendPath (GetFilenamePath (getThisScriptFilename())) "tools")
+			shadersPath        = config.LoadProperty "MAXLancer" "shadersPath"        default:(pathConfig.appendPath (GetDir #maxroot) "maps\\fx\\MAXLancer")
+			freelancerPath     = config.LoadProperty "MAXLancer" "freelancerPath"     default:(GetFreelancerPath())
+			convexGenerator    = config.LoadProperty "MAXLancer" "convexGenerator"    default:1    type:#number
+			partSize           = config.LoadProperty "MAXLancer" "partSize"           default:0.25 type:#number
+			hardpointSize      = config.LoadProperty "MAXLancer" "hardpointSize"      default:0.25 type:#number
+			hashDecimal        = config.LoadProperty "MAXLancer" "hashDecimal"        default:3    type:#integer
+			writeDummyVMeshRef = config.LoadProperty "MAXLancer" "writeDummyVMeshRef" default:true type:#boolean
 
 			animationSamplingRate      = config.LoadProperty "MAXLancer" "animationSamplingRate"      default:30    type:#number
 			animationSamplingThreshold = config.LoadProperty "MAXLancer" "animationSamplingThreshold" default:0.0   type:#number

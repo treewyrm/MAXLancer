@@ -31,7 +31,7 @@ macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" butt
 		button loadRightHandButton "Load Right Hand" pos:[8,104] width:120 height:24 enabled:false
 		editText rightHandFilename "" pos:[136,108] width:240 height:16 readOnly:true
 
-		spinner scaleSpinner "Scale:" pos:[8,140] width:90 height:16
+		spinner scaleSpinner "Scale:" pos:[8,140] range:[1, 3.4e38, 1] fieldWidth:80 height:16
 
 		button buildButton "Build Character" pos:[216,136] width:160 height:24 enabled:false align:#left
 		progressBar buildProgress "" pos:[8,168] width:368 height:8
@@ -86,9 +86,16 @@ macroscript ImportCharacter category:"MAXLancer" tooltip:"Import Character" butt
 			if leftHand != undefined then  faceCount += leftHand.GetFaceCount()
 			if rightHand != undefined then faceCount += rightHand.GetFaceCount()
 			
-			root = body.BuildCostume head leftHand rightHand materialLib:materialLib textureLib:textureLib progress:ProgressCallback
+			local resultName = getFilenameFile body.filename
+			if head != undefined then resultName += "_" + getFilenameFile head.filename
 
-			select root
+			local size = scaleSpinner.value
+			local result = point name:resultName size:1 box:false cross:true axistripod:false centermarker:false scale:[size, size, size] isSelected:true
+
+			root = body.BuildCostume head leftHand rightHand materialLib:materialLib textureLib:textureLib progress:ProgressCallback
+			root.parent = result
+
+			select result
 			DestroyDialog ImportCharacterRollout
 			gc light:false
 			messageBox ("Character imported in " + formattedPrint (0.001 * (timeStamp() - start)) format:".2f" + " seconds") beep:false

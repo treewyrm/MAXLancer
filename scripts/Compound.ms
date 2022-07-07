@@ -327,6 +327,7 @@ fn ReadCompound reader constraints archetype &scaler: = (
 
 	local parts = #() -- Array of *Part (includes root)
 	local root        -- Root part
+	local part        -- Individual part
 
 	if not reader.OpenFolder "Cmpnd" then throw "Compound model is missing Cmpnd."
 	MAXLancer.WriteLog "Reading compound hierarchy"
@@ -344,8 +345,8 @@ fn ReadCompound reader constraints archetype &scaler: = (
 	-- Read part fragments
 	for part in parts do (
 		if not reader.OpenFolder part.filename then throw ("Compound model part " + part.name + " is missing fragment: " + part.filename)
-
-		part.ReadUTF reader
+		
+		part.readUTF reader
 		reader.CloseFolder() -- Close filename
 	)
 
@@ -610,4 +611,73 @@ struct SceneIterator (
 			true
 		)
 	)
+)
+
+-- Special camera part used by cockpit models
+struct CameraPart (
+	fovX = 90,
+	fovY = 0,
+	zNear = 1,
+	zFar = 1000,
+
+	fn readUTF reader = (
+		fovX  = radToDeg (reader.ReadFileFloat "Fovx")
+		fovY  = radToDeg (reader.ReadFileFloat "Fovy")
+		zNear = reader.ReadFileFloat "Znear"
+		zFar  = reader.ReadFileFloat "Zfar"
+		OK
+	),
+
+	fn writeUTF writer = (
+		writer.WriteFileFloat "Fovx"  (degToRad fovX)
+		writer.WriteFileFloat "Fovy"  (degToRad fovY)
+		writer.WriteFileFloat "Znear" zNear
+		writer.WriteFileFloat "Zfar"  zFar
+		OK
+	)
+)
+
+fn ReadCamera reader &camera = (
+	if classOf reader != UTFReader then throw "Invalid UTFReader object"
+
+	camera = undefined
+
+	if reader.OpenFolder "Camera" then (
+		(camera = CameraPart()).ReadUTF reader
+		reader.CloseFolder() -- Close Camera
+	)
+
+	OK
+)
+
+fn WriteCamera writer camera = (
+	if classOf writer != UTFWriter then throw "Invalid UTFWriter object"
+
+	-- Write wireframe
+	if classOf camera == CameraPart then (
+		if not writer.OpenFolder "Camera" then throw "Error writing Camera"
+
+		camera.WriteUTF writer
+		writer.CloseFolder() -- Close Camera
+	)
+
+	OK
+)
+
+fn BuildCamera target camera = (
+	if not isValidNode target then throw "Invalid target node."
+
+	local result = Freecamera parent:target transform:(rotateXMatrix 90 * target.transform) fov:camera.fovX clipManually:true nearclip:camera.zNear farclip:camera.zFar wireColor:target.wireColor
+	AddToLayer "Cameras" result
+
+	OK
+)
+
+fn ParseCamera target = (
+	if not isValidNode target then throw "Invalid target node."
+	if classOf target != Freecamera then throw "Invalid camera node."
+
+	local result = CameraPart fovX:target.fov zNear:target.nearclip zFar:target.farclip
+
+	result -- Return CameraPart
 )

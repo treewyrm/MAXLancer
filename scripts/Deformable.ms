@@ -50,7 +50,16 @@ struct DeformablePart (
 	),
 
 	fn Build size:0.025 = (
-		local result = Point name:name size:size transform:boneToRoot showLinks:true
+		/*
+		local result = BoneSys.createBone [0, 0, 0] [1, 0, 0] z_axis
+
+		result.transform = boneToRoot
+		result.width = size
+		result.height = size
+		result.length = size
+		*/
+		-- local result = bone name:name transform:boneToRoot
+		local result = Point name:name transform:boneToRoot size:size showLinks:true box:false cross:false axistripod:false centermarker:false
 		
 		BuildHardpoints result hardpoints size:size
 		result -- Return DeformablePartHelper
@@ -247,7 +256,7 @@ struct DeformableMesh (
 	),
 
 	-- Build mesh
-	fn Build materialLib: textureLib: = (
+	fn Build materialLib: textureLib: progress: = (
 		local materials = #() -- Array of string
 		local ranges    = #() -- Array of Point2
 		local faces     = #() -- Array of Point3
@@ -269,6 +278,8 @@ struct DeformableMesh (
 				if classOf UV0Indices == Array and UV0Indices.count > 0 then append facesUV0 ([UV0Indices[face.x], UV0Indices[face.y], UV0Indices[face.z]] + 1)
 				if classOf UV1Indices == Array and UV1Indices.count > 0 then append facesUV1 ([UV1Indices[face.x], UV1Indices[face.y], UV1Indices[face.z]] + 1)
 			)
+
+			if classOf progress == MAXScriptFunction then progress groupFaces.count
 		)
 
 		-- Build mesh
@@ -512,19 +523,113 @@ struct DeformableCompound (
 			if meshes[i] == undefined then throw ("Missing mesh fraction " + formattedPrint (i - 1) format:"u")
 
 			-- Generating mesh
-			target = meshes[i].Build materialLib:materialLib textureLib:textureLib
+			target = meshes[i].Build materialLib:materialLib textureLib:textureLib progress:progress
+			target.name = (getFilenameFile filename) + "_fraction" + formattedPrint (i - 1) format:"u"
+
 			(GetLayer ("Fraction" + formattedPrint (i - 1) format:"u") hidden:(i > 1)).AddNode target
 
 			-- Applying skin bones and pose binds
 			meshes[i].ApplySkin target parts binds
 			
-			if classOf progress == MAXScriptFunction then progress (meshes[i].GetFaceCount())
+			-- if classOf progress == MAXScriptFunction then progress (meshes[i].GetFaceCount())
 		)
 
 		OK
 	),
 
-	fn BuildSkeleton parts binds size:0.0125 = (
+	fn BuildBone part joint size:0.025 = (
+		local result = BoneSys.createBone [0, 0, 0] [1, 0, 0] z_axis
+
+		result.name = part.name
+		result.width = size
+		result.height = size
+		result.length = size
+		result.taper = 100
+		result.boneAxis = #y
+		result.boneAxisFlip = true
+
+		BuildHardpoints result part.hardpoints size:size
+		SetCompoundJoint result joint
+
+		result
+	),
+
+	fn BuildSkeleton parts binds size:0.05 = (
+		if classOf parts != Array then throw "Invalid bones array type."
+		if classOf binds != Array then throw "Invalid binding transformations array type."
+
+		local layer = GetLayer "Bones"
+		local queue = for constraint in constraints where constraint.parent == root collect constraint
+
+		local parent
+		local child
+		local boneToRoot
+
+		local rootIndex   = root.index + 1
+		local parentIndex = 0
+		local childIndex  = 0
+		local subconstraints -- Array of Constraint
+		
+		-- Set skeleton root
+		-- local result = root.Build size:size
+		local result = BuildBone root (JointLoose())
+		layer.AddNode result
+
+		parts.count = binds.count = 0
+
+		parts[rootIndex] = result
+		binds[rootIndex] = Matrix3 1
+
+		while queue.count > 0 do (
+			constraint  = queue[queue.count]
+			queue.count = queue.count - 1
+
+			parentIndex = constraint.parent.index + 1
+			childIndex  = constraint.child.index + 1
+
+			if parts[parentIndex] == undefined then throw ("Invalid parent bone index in " + constraint.child.name)
+			if parts[childIndex] != undefined then throw ("Duplicate bone index in " + constraint.child.name)
+
+
+
+			-- Create dummy bone
+			-- MAX bones by default use X axis for length
+			child = BuildBone constraint.child constraint.joint
+
+			-- BoneSys.createBone [0, 0, 0] [1, 0, 0] z_axis
+			-- child.name = constraint.child.name
+			child.transform = RotateZMatrix -90 * constraint.child.boneToRoot -- 
+			-- child.width = size * f
+			-- child.height = size * f
+			-- child.length = size * f
+			-- child.taper = 100
+
+			layer.AddNode child
+
+			-- Place bone into hierarchy
+			parts[childIndex] = child
+			binds[childIndex] = RotateZMatrix -90 * constraint.child.boneToRoot -- copy child.transform
+
+			child.parent = parts[parentIndex]
+
+			-- Collect child constraints
+			subconstraints = for subconstraint in constraints where subconstraint.parent == constraint.child collect subconstraint
+
+			-- Set length to last child 
+			if subconstraints.count == 1 then child.length = length (constraint.child.boneToRoot.translationpart - subconstraints[1].child.boneToRoot.translationpart)
+
+			-- Apply joint transform to bone (this also resets them to zero?)
+			-- SetCompoundJoint child constraint.joint
+
+			-- Append to queue
+			for constraint in subconstraints do append queue constraint 
+		)
+
+
+		return result
+	),
+
+	fn BuildSkeletonOld parts binds size:0.0125 = (
 		if classOf parts != Array then throw "Invalid bones array type."
 		if classOf binds != Array then throw "Invalid binding transformations array type."
 
@@ -532,7 +637,8 @@ struct DeformableCompound (
 		local queue  = for constraint in constraints where constraint.parent == root collect constraint
 		local result = root.Build size:size
 		local constraint -- JointConstraint
-		local target     -- Bone Helper
+		local child      -- Child Helper
+		local parent     -- Parent Helper
 
 		local rootIndex   = root.index + 1
 		local parentIndex = 0
@@ -547,7 +653,7 @@ struct DeformableCompound (
 		layer.AddNode result
 
 		while queue.count > 0 do (
-			constraint = queue[queue.count]
+			constraint  = queue[queue.count]
 			queue.count = queue.count - 1
 
 			parentIndex = constraint.parent.index + 1
@@ -556,15 +662,26 @@ struct DeformableCompound (
 			if parts[parentIndex] == undefined then throw ("Invalid parent bone index in " + constraint.child.name)
 			if parts[childIndex] != undefined then throw ("Duplicate bone index in " + constraint.child.name)
 
-			MAXLancer.WriteLog ("Building bone: " + constraint.parent.name + " to " + constraint.child.name + " (" + formattedPrint constraint.child.index format:"u" + ")")
+			parent = parts[parentIndex]
 
-			parts[childIndex] = target = constraint.child.Build size:size
+			MAXLancer.WriteLog ("Building bone: " + constraint.parent.name + " -> " + constraint.child.name + " (" + formattedPrint constraint.child.index format:"u" + ")")
+
+			parts[childIndex] = child = constraint.child.Build size:size
+			-- parts[childIndex] = child = BoneSys.createBone [0, 0, 0] [1, 0, 0] z_axis
 			binds[childIndex] = constraint.child.boneToRoot
 
-			target.parent = parts[parentIndex]
+			/*
+				child.name = constraint.child.name
+				child.transform = constraint.child.boneToRoot
+				child.width = 0.025
+				child.height = 0.025
+				child.taper = 100
+			*/
 
-			layer.AddNode target
-			SetCompoundJoint target constraint.joint
+			child.parent = parent
+
+			layer.AddNode child
+			SetCompoundJoint child constraint.joint
 
 			for subconstraint in constraints where subconstraint.parent == constraint.child do append queue subconstraint
 		)
@@ -580,6 +697,8 @@ struct DeformableCompound (
 
 		-- Generate placeholders 
 		for i = 1 to GetLastBoneIndex() + 1 where parts[i] == undefined do (
+			MAXLancer.WriteLog ("Bone " + formattedPrint i format:"02u" + " is undefined. Creating placeholder.")
+
 			parts[i] = Dummy name:("Bone_" + formattedPrint i format:"02u") boxSize:[0.05, 0.05, 0.05]
 			binds[i] = Matrix3 1
 		)

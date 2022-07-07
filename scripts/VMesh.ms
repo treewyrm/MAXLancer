@@ -1265,7 +1265,7 @@ fn WriteLevels writer levels ranges = (
 			
 			levels[1].WriteUTF writer
 			writer.CloseFolder() -- Close VMeshPart
-		) else ( -- Write dummy VMeshRef for compatibility
+		) else if MAXLancer.writeDummyVMeshRef then ( -- Write dummy VMeshRef for compatibility
 			if not writer.OpenFolder "VMeshPart" then throw "Error writing VMeshPart"
 			(VMeshRef()).WriteUTF writer
 			writer.CloseFolder() -- Close VMeshPart

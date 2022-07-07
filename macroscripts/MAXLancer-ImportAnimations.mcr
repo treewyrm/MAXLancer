@@ -27,7 +27,7 @@ macroscript ImportAnimations category:"MAXLancer" tooltip:"Import Animations" bu
 				library.ReadUTF reader filter:filenames
 				reader.Close()
 
-				library.Build root attached:true
+				library.Build root attached:true deformable:(classOf root == BoneGeometry)
 
 				DestroyDialog ImportAnimationRollout
 			)
