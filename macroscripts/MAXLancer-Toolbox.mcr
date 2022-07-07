@@ -480,6 +480,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 
 		group "Miscellaneous" (
 			button createWireframesButton "Create Wireframes" width:128 height:24 align:#center tooltip:"Create wireframe shapes for selected editable meshes from visible edges."
+			button createCameraButton "Create Camera" width:128 height:24 align:#center tooltip:"Create camera part from selected camera object."
 			button resetXFormButton "Reset Transforms" width:128 height:24 align:#center tooltip:"Applies and collapses XForm Reset to selected editable meshes."
 			button centerPivotButton "Reset Center Pivots" width:128 height:24 align:#center tooltip:"Resets pivot for selected editable meshes."
 		)
@@ -489,6 +490,27 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 		fn filterDamagePart target = MAXLancer.IsRigidPartHelper target and target.parent == undefined
 
 		fn filterTargetHardpoint target = targetPart != undefined and damagePart != undefined and MAXLancer.IsHardpointHelper target and target.parent == targetPart.parent
+
+		fn filterCamera target = isValidNode target and superClassOf target == camera
+
+		on createCameraButton pressed do (
+			local target = MAXLancer.PickSceneObject filterCamera message:"Select camera object."
+			
+			if target != undefined then (
+				local result = MAXLancer.CreateRigidPartHelper target.name
+
+				result.transform = RotateXMatrix -90 * target.transform
+				result.isCamera  = true
+				result.fovX      = target.fov
+				result.fovY      = 2 * atan(1 / getRendImageAspect() * tan(target.fov * .5))
+				result.zNear     = target.nearClip
+				result.zFar      = target.farClip
+
+				select result
+			)
+
+			OK
+		)
 
 		on assignDestructibleButton pressed do (
 			targetPart = if selection.count == 1 and filterTargetPart selection[1] then selection[1] else pickObject message:"Pick target part" filter:filterTargetPart
