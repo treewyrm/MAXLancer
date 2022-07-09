@@ -102,7 +102,8 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 						reader.CloseFolder()
 					)
 
-					reader.Close()					
+					reader.Close()
+					windows.processPostedMessages()
 				) catch (
 					WriteLine ("ERROR (" + filename + "): " + getCurrentException())
 					reader.Close()
@@ -180,7 +181,8 @@ macroscript FindResources category:"MAXLancer" tooltip:"Find Resources" buttonte
 						if usedByMesh then WriteLine (subject + " is used by mesh in: " + filename)
 					)
 					
-					reader.Close()					
+					reader.Close()
+					windows.processPostedMessages()
 				) catch (
 					WriteLine ("ERROR (" + filename + "): " + getCurrentException())
 					reader.Close()
