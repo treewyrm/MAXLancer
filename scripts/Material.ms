@@ -126,6 +126,7 @@ fn SetShaderColor target property source = if hasProperty target property then (
 	OK
 )
 
+-- Read diffuse color from UTF
 fn ReadDiffuseColor reader &diffuseColor opacity:false default:white = (
 	reader.ReadFileColorFloat "Dc" (diffuseColor = default)
 
@@ -137,9 +138,37 @@ fn ReadDiffuseColor reader &diffuseColor opacity:false default:white = (
 	OK
 )
 
+-- Write diffuse color into UTF
 fn WriteDiffuseColor writer diffuseColor opacity:false default:white = (
 	if diffuseColor.r < default.r or diffuseColor.g < default.g or diffuseColor.b < default.b then writer.WriteFileColorFloat "Dc" diffuseColor
 	if diffuseColor.a < default.a then writer.WriteFileFloat "Oc" (diffuseColor.a / 255)
+	OK
+)
+
+fn SetPhysicalMaterial target diffuseColor: diffuseTexture: emissionTexture: textureLib: = if classOf target == PhysicalMaterial then (
+
+	target.metalness = MAXLancer.defaultRenderMetalness
+	target.roughness = MAXLancer.defaultRenderRoughness
+
+	if classOf diffuseColor == color then (
+		target.Base_Color   = diffuseColor
+		target.Transparency = (255.0 - diffuseColor.a) / 255.0
+		target.thin_walled  = true
+	)
+
+	-- Assigning diffuse texture as coat map
+	if classOf diffuseTexture == FLMaterialMap then (
+		target.coating = 1.0
+
+		SetRenderTextureMap target #coat_color_map textureLib diffuseTexture
+	)
+
+	if classOf emissionTexture == FLMaterialMap then (
+		SetRenderTextureMap target #emission_map textureLib emissionTexture
+
+		if classOf diffuseTexture == FLMaterialMap then SetRenderTextureMap target #emit_color_map textureLib diffuseTexture
+	)
+
 	OK
 )
 
@@ -149,8 +178,8 @@ struct SinglePassMaterial (
 	technique,       -- Display technique
 	diffuseColor,    -- Diffuse color and opacity (color)
 	emissionColor,   -- Emission color (color)
-	diffuseTexture,  -- Diffuse texture (FLTextureMap)
-	emissionTexture, -- Emission texture (FLTextureMap)
+	diffuseTexture,  -- Diffuse texture (FLMaterialMap)
+	emissionTexture, -- Emission texture (FLMaterialMap)
 
 	fn Parse target textureLib: = (
 		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
@@ -160,19 +189,22 @@ struct SinglePassMaterial (
 
 		GetTextureMap target #DiffuseTexture  textureLib &diffuseTexture
 		GetTextureMap target #EmissionTexture textureLib &emissionTexture
+
 		OK
 	),
 
 	fn Build target textureLib: = (
-		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+		case classOf target of (
+			DxMaterial: (
+				SetShaderColor target #DiffuseColor  diffuseColor
+				SetShaderColor target #EmissionColor emissionColor
 
-		SetShaderColor target #DiffuseColor  diffuseColor
-		SetShaderColor target #EmissionColor emissionColor
-
-		SetTextureMap target #DiffuseTexture  textureLib diffuseTexture
-		SetTextureMap target #EmissionTexture textureLib emissionTexture
-
-		SetRenderTextureMap target.renderMaterial #diffuseMap textureLib diffuseTexture
+				SetTextureMap target #DiffuseTexture  textureLib diffuseTexture
+				SetTextureMap target #EmissionTexture textureLib emissionTexture
+			)
+			PhysicalMaterial: SetPhysicalMaterial target diffuseColor:diffuseColor diffuseTexture:diffuseTexture emissionTexture:emissionTexture textureLib:textureLib
+			#default: throw "Invalid material build target object."
+		)
 
 		OK
 	),
@@ -219,12 +251,17 @@ struct DetailMaterial (
 	),
 
 	fn Build target textureLib: = (
-		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+		case classOf target of (
+			DxMaterial: (
+				SetShaderColor target #DiffuseColor diffuseColor
 
-		SetShaderColor target #DiffuseColor diffuseColor
+				SetTextureMap target #DiffuseTexture textureLib diffuseTexture
+				SetTextureMap target #DetailTexture  textureLib detailTexture
+			)
+			PhysicalMaterial: SetPhysicalMaterial target diffuseColor:diffuseColor diffuseTexture:diffuseTexture textureLib:textureLib
+			#default: throw "Invalid material build target object."
+		)
 
-		SetTextureMap target #DiffuseTexture textureLib diffuseTexture
-		SetTextureMap target #DetailTexture  textureLib detailTexture
 		OK
 	),
 
@@ -263,10 +300,15 @@ struct NebulaMaterial (
 	),
 
 	fn Build target textureLib: = (
-		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+		case classOf target of (
+			DxMaterial: (
+				SetShaderColor target #DiffuseColor diffuseColor
+				SetTextureMap target #DiffuseTexture textureLib diffuseTexture
+			)
+			PhysicalMaterial: SetPhysicalMaterial target diffuseColor:diffuseColor diffuseTexture:diffuseTexture textureLib:textureLib
+			#default: throw "Invalid material build target object."
+		)
 
-		SetShaderColor target #DiffuseColor diffuseColor
-		SetTextureMap target #DiffuseTexture textureLib diffuseTexture
 		OK
 	),
 
@@ -301,9 +343,14 @@ struct GlassMaterial (
 	),
 
 	fn Build target textureLib: = (
-		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+		case classOf target of (
+			DxMaterial: (
+				SetShaderColor target #DiffuseColor diffuseColor
+			)
+			PhysicalMaterial: SetPhysicalMaterial target diffuseColor:diffuseColor textureLib:textureLib
+			#default: throw "Invalid material build target object."
+		)
 
-		SetShaderColor target #DiffuseColor diffuseColor
 		OK
 	),
 
@@ -349,12 +396,17 @@ struct NomadMaterial (
 	),
 
 	fn Build target textureLib: = (
-		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+		case classOf target of (
+			DxMaterial: (
+				SetShaderColor target #DiffuseColor  diffuseColor
 
-		SetShaderColor target #DiffuseColor  diffuseColor
+				SetTextureMap target #DiffuseTexture textureLib diffuseTexture
+				SetTextureMap target #NomadTexture   textureLib nomadTexture
+			)
+			PhysicalMaterial: SetPhysicalMaterial target diffuseColor:diffuseColor diffuseTexture:diffuseTexture textureLib:textureLib
+			#default: throw "Invalid material build target object."
+		)
 
-		SetTextureMap target #DiffuseTexture textureLib diffuseTexture
-		SetTextureMap target #NomadTexture   textureLib nomadTexture
 		OK
 	),
 
@@ -464,9 +516,14 @@ struct FLMaterialLibrary (
 		if result == undefined then (
 			if (mat = GetMaterial target) != undefined then (
 
-				-- Create new DxMaterial
-				if (result = shaders.CreateShader mat) == undefined then throw "Material has no matching shader associated."
+				result = case MAXLancer.defaultRenderMaterial of (
+					true:  PhysicalMaterial()
+					false: shaders.CreateShader mat
+				)
 
+				if result == undefined then throw "Material has no matching shader associated."
+
+				result.name = mat.name
 				mat.Build result textureLib:textureLib
 
 				-- Add DxMaterial to cache
@@ -497,7 +554,7 @@ struct FLMaterialLibrary (
 			)
 		)
 
-		for m in mats do (
+		for m in mats where hasProperty m #NoExport and not (getProperty m #NoExport) do (
 			local crc = MAXLancer.Hash m.name
 
 			if classOf filter == Array then (

@@ -5,9 +5,9 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 	local toolboxOpen = false
 
 	-- Apply property to MAXLancer instance and save into configuration file
-	fn ApplyProperty property value = (
+	fn ApplyProperty property value category:"MAXLancer" = (
 		if hasProperty MAXLancer property then setProperty MAXLancer property value else throw ("Missing MAXLancer property: " + property as string)
-		MAXLancer.config.SaveProperty "MAXLancer" (property as string) value
+		MAXLancer.config.SaveProperty category (property as string) value
 		OK
 	)
 
@@ -23,6 +23,26 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 		on GeneralRollout open do (
 			hashDecimalSpinner.value           = MAXLancer.hashDecimal
 			writeDummyVMeshRefCheckbox.checked = MAXLancer.writeDummyVMeshRef
+		)
+	)
+
+	rollout RenderRollout "Render" (
+		checkbox physicalMaterialCheckbox "Use PhysicalMaterial instead of DXShader" tooltip:"Enable to render imported models."
+
+		spinner metalnessSpinner "Default metalness:" range:[0.0, 1.0, 0.25] type:#float
+		spinner roughnessSpinner "Default roughness:" range:[0.0, 1.0, 0.75] type:#float
+
+		fn Apply = (
+			ApplyProperty #defaultRenderMaterial  physicalMaterialCheckbox.checked category:"Render"
+			ApplyProperty #defaultRenderMetalness metalnessSpinner.value category:"Render"
+			ApplyProperty #defaultRenderRoughness roughnessSpinner.value category:"Render"
+		)
+
+		on RenderRollout open do (
+			physicalMaterialCheckbox.checked = MAXLancer.defaultRenderMaterial
+
+			metalnessSpinner.value = MAXLancer.defaultRenderMetalness
+			roughnessSpinner.value = MAXLancer.defaultRenderRoughness
 		)
 	)
 
@@ -125,6 +145,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 		
 		on SettingsRollout open do (
 			AddSubRollout categories GeneralRollout rolledUp:true
+			AddSubRollout categories RenderRollout rolledUp:true
 			AddSubRollout categories ExternalPathsRollout rolledUp:true
 			AddSubRollout categories HelpersRollout rolledUp:true
 			AddSubRollout categories AnimationRollout rolledUp:true

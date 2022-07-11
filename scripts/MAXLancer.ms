@@ -235,6 +235,11 @@ global MAXLancer = (
 		hashDecimal = 3,
 		writeDummyVMeshRef = true, -- Write dummy VMeshRef on export if part has no LOD
 
+		-- Default properties applied to renderMaterial when importing
+		defaultRenderMaterial  = false,
+		defaultRenderMetalness = 0.25,
+		defaultRenderRoughness = 0.75,
+
 		freelancerPath,   -- Path to Freelancer installation
 		texturesPath,     -- Path to textures
 		shadersPath,      -- Path to HLSL shaders
@@ -611,6 +616,10 @@ global MAXLancer = (
 			animationSamplingRate      = config.LoadProperty "MAXLancer" "animationSamplingRate"      default:30    type:#number
 			animationSamplingThreshold = config.LoadProperty "MAXLancer" "animationSamplingThreshold" default:0.0   type:#number
 			animationSamplingOverwrite = config.LoadProperty "MAXLancer" "animationSamplingOverwrite" default:false type:#boolean
+
+			defaultRenderMaterial  = config.LoadProperty "Render" "defaultRenderMaterial"  default:false type:#boolean
+			defaultRenderMetalness = config.LoadProperty "Render" "defaultRenderMetalness" default:0.25  type:#number
+			defaultRenderRoughness = config.LoadProperty "Render" "defaultRenderRoughness" default:0.75  type:#number
 
 			if not doesFileExist temporaryPath then makeDir temporaryPath all:true
 

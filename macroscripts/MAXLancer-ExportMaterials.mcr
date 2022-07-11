@@ -139,7 +139,7 @@ macroscript ExportMaterials category:"MAXLancer" tooltip:"Export Materials" butt
 					MAXLancer.GetMeshMaterials item &materials &faces
 
 					for m = 1 to materials.count do (
-						if materialLib.GetMaterial materials[m].name == undefined then (
+						if materialLib.GetMaterial materials[m].name == undefined and hasProperty materials[m] #NoExport and not (getProperty materials[m] #NoExport) then (
 							append materialLib.materials (materialLib.Parse materials[m] textureLib:textureLib)
 							append meshes #(item)
 							append materialFaces #(faces[m])
