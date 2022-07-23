@@ -201,6 +201,7 @@ global MAXLancer = (
 		GetMeshElements,
 		GetMeshMaterials,
 		GetCompoundJoint,
+		ListMaterials,
 		FindHardpoint,
 
 		GetRandomColorHSL,
@@ -260,6 +261,7 @@ global MAXLancer = (
 
 		fn CreateRigidPartHelper name = RigidPartHelper name:name,
 		fn IsRigidPartHelper target = isValidNode target and classOf target == RigidPartHelper,
+		fn IsRootRigidPartHelper target = isValidNode target and classOf target == RigidPartHelper and classOf parent != RigidPartHelper,
 
 		fn CreateHardpointHelper name = HardpointHelper name:name,
 		fn IsHardpointHelper target = isValidNode target and classOf target == HardpointHelper,
@@ -274,7 +276,7 @@ global MAXLancer = (
 
 		fn CreateRigidPart = RigidPart(),
 		fn IsRigidPart target = classOf target == RigidPart,
-		fn IsRigidLevel target = classOf target == Editable_mesh and (custAttributes.get target VMeshAttributes) != undefined,
+		fn IsRigidLevel target = superClassOf target == GeometryClass and (custAttributes.get target VMeshAttributes) != undefined,
 
 		fn CreateDeformableCompound = DeformableCompound(),
 		fn IsDeformableCompound target = classOf target == DeformableCompound,
@@ -419,6 +421,13 @@ global MAXLancer = (
 			OK
 		),
 
+		-- Finds top 
+		fn GetRootHelper target = (
+			while target.parent != undefined and classOf target == RigidPartHelper and classOf target.parent != RigidPartHelper do target = target.parent
+
+			target -- Return Node
+		),
+
 		-- Finds top node from hardpoint matching its parent class
 		fn GetRootFromHardpoint target = (
 			local child = if classOf target == HardpointHelper then target.parent
@@ -452,8 +461,8 @@ global MAXLancer = (
 
 		mapped fn SetRigidPartSize part size = if classOf part == RigidPartHelper then part.size = float size,
 
-		mapped fn SetVMesh target = if superClassOf target == GeometryClass then custAttributes.add target VMeshAttributes,
-		mapped fn UnsetVMesh target = if superClassOf target == GeometryClass then custAttributes.delete target VMeshAttributes,
+		mapped fn SetVMesh target = if isValidNode target then custAttributes.add target VMeshAttributes,
+		mapped fn UnsetVMesh target = if isValidNode target then custAttributes.delete target VMeshAttributes,
 
 		-- Load rigid model from file
 		fn LoadRigidModel filename meshLib: materialLib: textureLib: = (
@@ -670,6 +679,7 @@ global MAXLancer = (
 		)
 	)
 
+	-- Return new tools instance
 	MAXLancerTools \
 		CreateGUID:                 CreateGUID                 \
 		FilterFiles:                FilterFiles                \
@@ -682,6 +692,7 @@ global MAXLancer = (
 		GetPartHardpoints:          GetPartHardpoints          \
 		GetMeshElements:            GetMeshElements            \
 		GetMeshMaterials:           GetMeshMaterials           \
+		ListMaterials:              ListMaterials              \
 		GetCompoundJoint:           GetCompoundJoint           \
 		GetRandomColorHSL:          GetRandomColorHSL          \
 		GetAtlasOffsets:            GetAtlasOffsets            \

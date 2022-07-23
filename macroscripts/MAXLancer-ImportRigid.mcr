@@ -11,7 +11,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 	local hardpointHullColor = (dotNetClass "System.Drawing.Color").LightSteelBlue
 	
 	-- Import .3db/.cmp
-	rollout ImportRigidRollout "Import Rigid Model" width:440 height:352 (
+	rollout ImportRigidRollout "Import Rigid Model" width:440 height:372 (
 
 		local model        -- RigidPart/RigidCompound
 		local meshLib      -- VMeshLibrary
@@ -35,27 +35,27 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 		local hashes = #() -- Array of hashes (integer)
 		local names  = #() -- Array of names (string)
 
-		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:320
+		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:340
 
 		GroupBox modelGroup "Model Components:" pos:[288, 8] width:144 height:124
 		checkbox hardpointsCheckbox "Hardpoints" pos:[296, 28] width:128 height:16 enabled:false tooltip:"Attachment points for equipment and other use."
 		checkbox meshesCheckbox "Meshes" pos:[296, 48] width:64 height:16 enabled:false tooltip:"LOD display meshes."
-
 		checkbox boundariesCheckbox "Bounds" pos:[360, 48] width:64 height:16 enabled:false tooltip:"LOD meshes boundary sphere and box."
-		checkbox wireframesCheckbox "Wireframes" pos:[296, 68] width:128 height:16 tooltip:"HUD wireframes (as Spline objects)."
-		checkbox materialsCheckbox "Materials and Textures" pos:[296, 88] width:128 height:16 enabled:false tooltip:"Materials and textures."
-		checkbox animationsCheckbox "Compound Animations" pos:[296, 108] width:128 height:16 enabled:false tooltip:"Multipart animation (enable in animation layers)."
+		checkbox smoothingGroupsCheckbox "Smoothing Groups" pos:[296, 68] width:128 height:16 tooltip:"Import smoothing groups (if available)."
+		checkbox wireframesCheckbox "Wireframes" pos:[296, 88] width:128 height:16 tooltip:"HUD wireframes (as Spline objects)."
+		checkbox materialsCheckbox "Materials and Textures" pos:[296, 108] width:128 height:16 enabled:false tooltip:"Materials and textures."
+		checkbox animationsCheckbox "Compound Animations" pos:[296, 128] width:128 height:16 enabled:false tooltip:"Multipart animation (enable in animation layers)."
 	
-		GroupBox surfaceGroup "Surface Components:" pos:[288, 144] width:144 height:144
-		checkbox hullsCheckbox "Collision Hulls" pos:[296, 164] width:128 height:16 enabled:false tooltip:"Collision detection meshes."
-		checkbox dupesCheckbox "Keep Duplicates" pos:[296, 184] width:128 height:16 enabled:false tooltip:"Retain duplicates of meshes in ascendent fixed parts."
-		checkbox wrapsCheckbox "Group Hulls" pos:[296, 204] width:128 height:16 enabled:false tooltip:"Group meshes for optimization."
-		checkbox centersCheckbox "Centers of Mass" pos:[296, 224] width:128 height:16 enabled:false tooltip:"Part center of mass, used for aiming reticle."
-		checkbox extentsCheckbox "Boundary Extents" pos:[296, 244] width:128 height:16 enabled:false tooltip:"Part boundary box extents."
-		checkbox nodesCheckbox "Hierarchy Volumes" pos:[296, 264] width:128 height:16 enabled:false tooltip:"Boundary box."
+		GroupBox surfaceGroup "Surface Components:" pos:[288, 164] width:144 height:144
+		checkbox hullsCheckbox "Collision Hulls" pos:[296, 184] width:128 height:16 enabled:false tooltip:"Collision detection meshes."
+		checkbox dupesCheckbox "Keep Duplicates" pos:[296, 204] width:128 height:16 enabled:false tooltip:"Retain duplicates of meshes in ascendent fixed parts."
+		checkbox wrapsCheckbox "Group Hulls" pos:[296, 224] width:128 height:16 enabled:false tooltip:"Group meshes for optimization."
+		checkbox centersCheckbox "Centers of Mass" pos:[296, 244] width:128 height:16 enabled:false tooltip:"Part center of mass, used for aiming reticle."
+		checkbox extentsCheckbox "Boundary Extents" pos:[296, 264] width:128 height:16 enabled:false tooltip:"Part boundary box extents."
+		checkbox nodesCheckbox "Hierarchy Volumes" pos:[296, 284] width:128 height:16 enabled:false tooltip:"Boundary box."
 
-		button importButton "Import Model" pos:[288, 304] width:144 height:24
-		progressBar buildProgress "" pos:[8, 336] width:424 height:8
+		button importButton "Import Model" pos:[288, 324] width:144 height:24
+		progressBar buildProgress "" pos:[8, 356] width:424 height:8
 
 		fn ProgressCallback count = (
 			buildProgress.value = (progressCount += count) * 100.0 / (indexCount + triangleCount)
@@ -104,13 +104,14 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 
 				-- Build LODs, hardpoints, wireframes
 				result = model.Build \
-					hardpoints:  hardpointsCheckbox.checked \
-					wireframes:  wireframesCheckbox.checked \
-					boundaries:  boundariesCheckbox.checked \
-					meshLib:     (if meshesCheckbox.checked then meshLib) \
-					materialLib: (if materialsCheckbox.checked then materialLib) \
-					textureLib:  (if materialsCheckbox.checked then textureLib) \
-					progress:    ProgressCallback
+					hardpoints:      hardpointsCheckbox.checked \
+					wireframes:      wireframesCheckbox.checked \
+					boundaries:      boundariesCheckbox.checked \
+					meshLib:         (if meshesCheckbox.checked then meshLib) \
+					materialLib:     (if materialsCheckbox.checked then materialLib) \
+					textureLib:      (if materialsCheckbox.checked then textureLib) \
+					smoothingGroups: smoothingGroupsCheckbox.checked \
+					progress:        ProgressCallback
 				
 				-- Buils surfaces
 				if centersCheckbox.checked or extentsCheckbox.checked or hullsCheckbox.checked or wrapsCheckbox.checked or nodesCheckbox.checked then
@@ -347,6 +348,8 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 				hardpointsCheckbox.checked = hardpointsCheckbox.enabled = hardpointCount > 0
 				animationsCheckbox.checked = animationsCheckbox.enabled = animationCount > 0
 				boundariesCheckbox.enabled = meshesCheckbox.enabled
+				
+				smoothingGroupsCheckbox.checked = smoothingGroupsCheckbox.enabled = meshCount > 0
 				
 				centersCheckbox.checked = hullsCheckbox.checked = dupesCheckbox.enabled = centersCheckbox.enabled = extentsCheckbox.enabled = hullsCheckbox.enabled = wrapsCheckbox.enabled = nodesCheckbox.enabled = hullCount > 0
 

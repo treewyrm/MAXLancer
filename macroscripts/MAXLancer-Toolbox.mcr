@@ -481,7 +481,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 		
 		group "Vertex Data" (
 			checkbox colorsCheckbox "Color and Transparency" tooltip:"Export vertex colors (map channels -2 and 0)."
-			dropdownlist normalsList "Normals Acquisition Method:" items:#("None", "Auto/Explicit", "Smoothing Groups", "Per-Vertex")
+			checkbox normalsCheckbox "Normals" tooltip:"Export vertex normals."
 			spinner mapsSpinner "UV Maps:" type:#integer range:[0, 8, 1] tooltip:"Export texture maps (map channels 1 to 8)."
 			
 			button applyVertexDataButton "Apply" width:88 height:24 align:#center tooltip:"Apply vertex data settings to all selected LOD meshes."
@@ -499,6 +499,11 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 			button removeDestructibleButton "Remove" width:76 height:24 align:#right
 		)
 
+		group "Animation" (
+			editText animationLayerEdit "Layer name:" labelOnTop:true
+			button addAnimationLayerButton "Add Layer" width:128 height:24 align:#center tooltip:"Setup animation layers and add animation layer."
+		)
+
 		group "Miscellaneous" (
 			button createWireframesButton "Create Wireframes" width:128 height:24 align:#center tooltip:"Create wireframe shapes for selected editable meshes from visible edges."
 			button createCameraButton "Create Camera" width:128 height:24 align:#center tooltip:"Create camera part from selected camera object."
@@ -508,7 +513,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 
 		fn filterTargetPart target = MAXLancer.IsRigidPartHelper target and MAXLancer.IsRigidPartHelper target.parent 
 
-		fn filterDamagePart target = MAXLancer.IsRigidPartHelper target and target.parent == undefined
+		fn filterRootPart target = MAXLancer.IsRigidPartHelper target and target.parent == undefined
 
 		fn filterTargetHardpoint target = targetPart != undefined and damagePart != undefined and MAXLancer.IsHardpointHelper target and target.parent == targetPart.parent
 
@@ -537,7 +542,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 			targetPart = if selection.count == 1 and filterTargetPart selection[1] then selection[1] else pickObject message:"Pick target part" filter:filterTargetPart
 
 			if isValidNode targetPart then (
-				damagePart = pickObject message:"Pick damage model" filter:filterDamagePart rubberBand:targetPart.transform.translationpart
+				damagePart = pickObject message:"Pick damage model" filter:filterRootPart rubberBand:targetPart.transform.translationpart
 
 				if isValidNode damagePart then (
 					damageHardpoint = MAXLancer.FindHardpoint damagePart "DpConnect"
@@ -580,6 +585,29 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 			OK
 		)
 
+		on addAnimationLayerButton pressed do if animationLayerEdit.text.count > 0 then (
+			local layerName = animationLayerEdit.text
+			local root = pickObject message:"Pick root of the model" filter:filterRootPart
+
+			if layerName.count > 0 and isValidNode root then (
+				local subparts = MAXLancer.GetPartChildren root deep:true
+				local parts    = #(root) + subparts
+				local items    = #() -- Array of AnimationScript
+
+				-- Check that all parts have correct type of transform controllers
+				-- Set root controller to LooseController if it isn't already
+				root.transform.controller = LooseJointController()
+			
+				-- Enable layers on parts if need be
+				AnimLayerManager.enableLayers &parts pos:true rot:true scale:false other:true
+
+				-- Add layer to root
+				AnimLayerManager.addLayer layerName root true
+			)
+
+			OK
+		)
+
 		on applyFixedJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.FixedJointController()
 		on applyRevoluteJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.AxisJointController type:1
 		on applyPrismaticJointButton pressed do for target in selection where MAXLancer.IsRigidPartHelper target do target.controller = MAXLancer.AxisJointController type:2
@@ -599,7 +627,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 			OK
 		)
 		
-		mapped fn applyLevels target level range = if classOf target == Editable_mesh then (
+		mapped fn applyLevels target level range = if isValidNode target then (
 			MAXLancer.SetVMesh target
 			
 			local a = custAttributes.get target MAXLancer.VMeshAttributes
@@ -612,9 +640,9 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 		mapped fn applyVertexData target colors normals mapCount = if MAXLancer.IsRigidLevel target then (
 			local a = custAttributes.get target MAXLancer.VMeshAttributes
 			
-			a.colors = colors
+			a.colors  = colors
 			a.normals = normals
-			a.maps = mapCount
+			a.maps    = mapCount
 			OK
 		)
 		
@@ -624,7 +652,7 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 
 		on applyLevelsButton pressed do applyLevels selection levelSpinner.value distanceSpinner.value
 			
-		on applyVertexDataButton pressed do applyVertexData selection colorsCheckbox.checked normalsList.selection mapsSpinner.value
+		on applyVertexDataButton pressed do applyVertexData selection colorsCheckbox.checked normalsCheckbox.checked mapsSpinner.value
 		
 		on clearLevelsButton pressed do MAXLancer.UnsetVMesh selection
 

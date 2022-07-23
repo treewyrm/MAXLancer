@@ -9,7 +9,7 @@ OutputDir=.
 OutputBaseFilename=maxlancer-setup
 SetupIconFile=maxlancer.ico
 DisableWelcomePage=no
-WizardImageFile=side_large.bmp
+WizardImageFile=side_large_color.bmp
 WizardSmallImageFile=header_small.bmp
 
 [Files]

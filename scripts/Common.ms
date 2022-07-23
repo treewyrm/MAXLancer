@@ -446,8 +446,6 @@ fn FilterFiles startPath recursive:true directoryMask:"*" fileMasks:#("*") filte
 
 -- Get array of faces bitArrays for each independent element in mesh
 fn GetMeshElements target = (
-	if classOf target != Editable_mesh then throw "Invalid target mesh"
-
 	local result   = #()
 	local faceList = #{1..getNumFaces target}
 	local elementList
@@ -462,8 +460,6 @@ fn GetMeshElements target = (
 
 -- Get array of face bitArrays for each polygon and face normals
 fn GetMeshPolygons target threshhold:0.1 = (
-	if classOf target != Editable_mesh then throw "Invalid target mesh"
-
 	local result   = #()
 	local faceList = #{1..getNumFaces target}
 	local polyList
@@ -476,12 +472,28 @@ fn GetMeshPolygons target threshhold:0.1 = (
 	result -- Return Array of BitArray
 )
 
+fn ListMaterials target = (
+	local result = #()
+
+	if isValidNode target then (
+		case target.material of (
+			Multimaterial: for i = 1 to target.material.materialIDList.count where classOf target.material.materialList[i] != Multimaterial do append result target.material.materialList[i]
+			default: append result target.material
+		)
+	)
+
+	result -- Return Array of materials
+)
+
 -- Collect submaterials and faces from mesh
 fn GetMeshMaterials target &materials &faces = (
-	if classOf target != Editable_mesh then throw "Invalid target mesh"
-
 	materials = #()
 	faces     = #()
+	
+	local getMatID = case classOf target of (
+		Editable_mesh: getFaceMatID
+		Editable_Poly: polyop.getFaceMatID
+	)
 
 	case classOf target.material of (
 		MultiMaterial: (
@@ -490,7 +502,7 @@ fn GetMeshMaterials target &materials &faces = (
 			local subfaces = for i = 1 to target.material.materialIDList.count collect #{}
 
 			-- Collect face lists arranged by submaterial ID
-			for f = 1 to getNumFaces target do subfaces[getFaceMatID target f][f] = true
+			for f = 1 to target.numFaces do subfaces[getMatID target f][f] = true
 
 			-- Filter through submaterials ignoring empty and invalid types
 			for i = 1 to target.material.materialList.count where not subfaces[i].isEmpty do (
@@ -500,7 +512,7 @@ fn GetMeshMaterials target &materials &faces = (
 		)
 		default: (
 			append materials target.material
-			append faces #{1..getNumFaces target}
+			append faces #{1..target.numFaces}
 		)
 	)
 

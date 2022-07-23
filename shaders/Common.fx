@@ -6,9 +6,9 @@ matrix WorldViewProjection       : WORLDVIEWPROJ;
 
 float3 AmbientColor : AMBIENT = {0.0f, 0.0f, 0.0f};
 
+bool NoExport < string UIName = "Skip Export"; > = false;
 bool EnableVertexColor < string UIName = "Vertex Color"; > = true;
 bool EnableVertexAlpha < string UIName = "Vertex Alpha"; > = true;
-bool NoExport < string UIName = "Not Exported"; > = false;
 
 SamplerState DefaultSampler {
 	Filter   = MIN_MAG_MIP_LINEAR;

@@ -230,7 +230,7 @@ struct RigidPart (
 	),
 
 	-- Build RigidPartHelper from RigidPart
-	fn Build hardpoints:true wireframes:true boundaries:false meshLib: materialLib: textureLib: size:(MAXLancer.partSize) origin:(Matrix3 1) progress: = (
+	fn Build hardpoints:true wireframes:true boundaries:false smoothingGroups:false meshLib: materialLib: textureLib: size:(MAXLancer.partSize) origin:(Matrix3 1) progress: = (
 		local helperName = if name.count > 0 then name else filename
 
 		MAXLancer.WriteLog ("Building rigid part: " + helperName)
@@ -246,14 +246,14 @@ struct RigidPart (
 			result.zFar     = camera.zFar
 		) else (
 			if hardpoints then BuildHardpoints result this.hardpoints
-			if classOf meshLib == VMeshLibrary then meshLib.BuildLevels result levels ranges wireframe wireframes:wireframes boundaries:boundaries materialLib:materialLib textureLib:textureLib progress:progress
+			if classOf meshLib == VMeshLibrary then meshLib.BuildLevels result levels ranges wireframe wireframes:wireframes boundaries:boundaries smoothingGroups:smoothingGroups materialLib:materialLib textureLib:textureLib progress:progress
 		)
 
 		result -- Return RigidPartHelper
 	),
 
 	-- Parse RigidPart from RigidPartHelper
-	fn Parse target hardpoints:true wireframes:true meshLib: materialLib: textureLib: progress: = (
+	fn Parse target hardpoints:true wireframes:true smoothingGroups:false meshLib: materialLib: textureLib: progress: = (
 		if classOf target != RigidPartHelper then throw "Invalid RigidPartHelper object."
 
 		MAXLancer.WriteLog ("Parsing rigid part: " + target.name)
@@ -273,7 +273,7 @@ struct RigidPart (
 			local partWireframe  -- VWireData
 
 			if hardpoints then ParseHardpoints target &this.hardpoints
-			if classOf meshLib == VMeshLibrary then meshLib.ParseLevels target filename &partLevels &partRanges &partWireframe wireframes:wireframes materialLib:materialLib textureLib:textureLib progress:progress
+			if classOf meshLib == VMeshLibrary then meshLib.ParseLevels target filename &partLevels &partRanges &partWireframe wireframes:wireframes smoothingGroups:smoothingGroups materialLib:materialLib textureLib:textureLib progress:progress
 			
 			levels    = partLevels
 			ranges    = partRanges
@@ -405,7 +405,7 @@ struct RigidCompound (
 	),
 
 	-- Build RigidCompound model into scene
-	fn Build hardpoints:true wireframes:true boundaries:false meshLib: materialLib: textureLib: progress: origin:(Matrix3 1) size:(MAXLancer.partSize) = (
+	fn Build hardpoints:true wireframes:true boundaries:false smoothingGroups:false meshLib: materialLib: textureLib: progress: origin:(Matrix3 1) size:(MAXLancer.partSize) = (
 		if classOf root != RigidPart then throw "Compound model is missing Root part."
 
 		MAXLancer.WriteLog ("Building compound model: " + filename)
@@ -421,6 +421,7 @@ struct RigidCompound (
 
 			iterator.parent = part = iterator.current.child.Build \
 				hardpoints:hardpoints wireframes:wireframes boundaries:boundaries \
+				smoothingGroups:smoothingGroups \
 				meshLib:meshLib materialLib:materialLib textureLib:textureLib \
 				size:size origin:iterator.current.transform progress:progress 
 
@@ -438,7 +439,7 @@ struct RigidCompound (
 		result -- Return Root RigidPartHelper
 	),
 
-	fn Parse target hardpoints:true wireframes:true meshLib: materialLib: textureLib: progress: = (
+	fn Parse target hardpoints:true wireframes:true smoothingGroups:false meshLib: materialLib: textureLib: progress: = (
 		if classOf target != RigidPartHelper then throw "Invalid RigidPartHelper object."
 
 		MAXLancer.WriteLog ("Parsing compound model: " + target.name)
@@ -454,7 +455,7 @@ struct RigidCompound (
 			MAXLancer.WriteLog ("Parsing part: " + iterator.current.child.name)
 
 			(iterator.parent = RigidPart filename:filename).Parse iterator.current.child \
-				hardpoints:hardpoints wireframes:wireframes \
+				hardpoints:hardpoints wireframes:wireframes smoothingGroups:smoothingGroups \
 				meshLib:meshLib materialLib:materialLib textureLib:textureLib \
 				progress:progress
 

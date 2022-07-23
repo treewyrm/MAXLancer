@@ -54,7 +54,7 @@ struct AnimationChannel (
 	fn AddKey keyTime floatValue: positionValue: rotationValue: pairValue: = (
 
 		-- Automatically add zero keyframe if keyTime is positive
-		if count == 0 and keyTime.frame > 0 then AddKey 0 floatValue:floatValue positionValue:positionValue rotationValue:rotationValue pairValue:pairValue
+		if count == 0 and keyTime.frame > 0 then AddKey 0s floatValue:floatValue positionValue:positionValue rotationValue:rotationValue pairValue:pairValue
 
 		count += 1
 	
@@ -470,9 +470,13 @@ struct AnimationLibrary (
 	),
 
 	-- Get subcontroller from layer controller by layer name
-	fn GetLayerController controller name = (
+	fn GetLayerController controller name before:#cycle after:#cycle = (
 		local result
 		if IsLayerController controller then for i = 2 to controller.getCount() while result == undefined where controller.getLayerName i == name do result = controller[i].controller
+		
+		setBeforeORT result before
+		setAfterORT result after
+
 		result -- Return controller
 	),
 

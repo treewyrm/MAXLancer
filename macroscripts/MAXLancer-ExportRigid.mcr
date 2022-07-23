@@ -9,7 +9,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 	local target -- RigidPartHelper
 
 	-- Export .3db/.cmp
-	rollout ExportRigidRollout "Export Rigid Model" width:440 height:392 (
+	rollout ExportRigidRollout "Export Rigid Model" width:440 height:412 (
 		local compound       = false
 		local indexCount     = 0 -- Number of indices in all mesh references
 		local triangleCount  = 0 -- Number of triangles in all hulls
@@ -26,28 +26,29 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		
 		local extraModels -- TreeNode
 
-		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:360
+		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:380
 
-		groupBox modelGroup "Model Resources:" pos:[288, 8] width:144 height:164
+		groupBox modelGroup "Model Resources:" pos:[288, 8] width:144 height:184
 		checkbox hardpointsCheckbox "Hardpoints" pos:[296, 28] width:128 height:16 toolTip:"Export model hardpoints to attach equipment."
 		checkbox meshesCheckbox "Meshes" pos:[296, 48] width:128 height:16 toolTip:"Export meshes and embed mesh library into model file."
-		checkbox wireframesCheckbox "Wireframes" pos:[296, 68] width:128 height:16 toolTip:"Export HUD wireframes from spline objects or LOD visible edges."
-		checkbox materialsCheckbox "Materials and Textures" pos:[296, 88] width:128 height:16 toolTip:"Export and embed materials and textures into model file. Required for THN scenery objects and starspheres."
-		checkbox materialAnimCheckbox "Material Animations" pos:[296, 108] width:128 height:16 toolTip:"Export material animations."
-		checkbox destructibleCheckbox "Destructible Parts" pos:[296, 128] width:128 height:16 toolTip:"Export destructible parts attached to Dp* hardpoints."
-		checkbox animationsCheckbox "Compound Animations" pos:[296, 148] width:128 height:16 toolTip:"Export compound animations and embed animation library into model file."
+		checkbox smoothingGroupsCheckbox "Smoothing Groups" pos:[296, 68] width:128 height:16 tooltip:"Export smoothing groups. Only used by 3ds Max."
+		checkbox wireframesCheckbox "Wireframes" pos:[296, 88] width:128 height:16 toolTip:"Export HUD wireframes from spline objects or LOD visible edges."
+		checkbox materialsCheckbox "Materials and Textures" pos:[296, 108] width:128 height:16 toolTip:"Export and embed materials and textures into model file. Required for THN scenery objects and starspheres."
+		checkbox materialAnimCheckbox "Material Animations" pos:[296, 128] width:128 height:16 toolTip:"Export material animations."
+		checkbox destructibleCheckbox "Destructible Parts" pos:[296, 148] width:128 height:16 toolTip:"Export destructible parts attached to Dp* hardpoints."
+		checkbox animationsCheckbox "Compound Animations" pos:[296, 168] width:128 height:16 toolTip:"Export compound animations and embed animation library into model file."
 
-		groupBox surfaceGroup "Surfaces:" pos:[288, 180] width:144 height:84
-		checkbox surfacesCheckbox "Collision Surfaces" pos:[296, 200] width:128 height:16 toolTip:"Export surface hulls into hitbox."
-		checkbox surfacesForceConvex "Force Convex" pos:[296, 220] width:128 height:16 toolTip:"Rebuilds elements of surface hulls."
-		checkbox surfacesSimple "Aftermath Format" pos:[296, 240] width:128 height:16 toolTip:"Alternative surface format for Aftermath mod (export only)."
+		groupBox surfaceGroup "Surfaces:" pos:[288, 200] width:144 height:84
+		checkbox surfacesCheckbox "Collision Surfaces" pos:[296, 220] width:128 height:16 toolTip:"Export surface hulls into hitbox."
+		checkbox surfacesForceConvex "Force Convex" pos:[296, 240] width:128 height:16 toolTip:"Rebuilds elements of surface hulls."
+		checkbox surfacesSimple "Aftermath Format" pos:[296, 260] width:128 height:16 toolTip:"Alternative surface format for Aftermath mod (export only)."
 
-		groupBox miscGroup "Miscellaneous:" pos:[288, 272] width:144 height:64
-		checkbox timestampsCheckbox "Timestamp Fragments" pos:[296, 292] width:128 height:16 toolTip:"Add timestamp marker to embedded .3db filenames."
-		checkbox versionCheckbox "Add Exporter Version" pos:[296, 312] width:128 height:16 checked:true toolTip:"Add exporter version entry into model file."
-	
-		button exportButton "Export Model" pos:[288, 344] width:144 height:24
-		progressBar exportProgress "" pos:[8, 376] width:424 height:8
+		groupBox miscGroup "Miscellaneous:" pos:[288, 292] width:144 height:64
+		checkbox timestampsCheckbox "Timestamp Fragments" pos:[296, 312] width:128 height:16 toolTip:"Add timestamp marker to embedded .3db filenames."
+		checkbox versionCheckbox "Add Exporter Version" pos:[296, 332] width:128 height:16 checked:true toolTip:"Add exporter version entry into model file."
+
+		button exportButton "Export Model" pos:[288, 364] width:144 height:24
+		progressBar exportProgress "" pos:[8, 396] width:424 height:8
 		
 		fn ProgressCallback count = (
 			exportProgress.value = (progressCount += count) * 100.0 / (indexCount + triangleCount + lineCount)
@@ -67,12 +68,13 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			
 			-- Parse model
 			result.Parse target \
-				hardpoints:  hardpointsCheckbox.checked \
-				wireframes:  wireframesCheckbox.checked \
-				meshLib:     (if meshesCheckbox.checked then meshLib) \
-				materialLib: (if materialsCheckbox.checked then materialLib) \
-				textureLib:  (if materialsCheckbox.checked then textureLib) \
-				progress:    ProgressCallback
+				hardpoints:      hardpointsCheckbox.checked \
+				wireframes:      wireframesCheckbox.checked \
+				smoothingGroups: smoothingGroupsCheckbox.checked \
+				meshLib:         (if meshesCheckbox.checked then meshLib) \
+				materialLib:     (if materialsCheckbox.checked then materialLib) \
+				textureLib:      (if materialsCheckbox.checked then textureLib) \
+				progress:        ProgressCallback
 			
 			-- Open UTF writer
 			writer.Open filename
@@ -220,10 +222,10 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			OK
 		)
 
-		fn ListLevel level index parent = (
+		fn ListLevel level index parent previousRange:0 = (
 			local child
-			local materials
-			local faces
+			-- local materials
+			-- local faces
 
 			indexCount += case level.mode of (
 				1: getNumVerts level
@@ -231,20 +233,20 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				default: 0
 			)
 
-			child = parent.Nodes.add ("Level " + formattedPrint index format:"u" + ": " + level.name + " (" + formattedPrint (getNumFaces level) format:"u" + " faces)")
-			child.Nodes.add ("Range: " + formattedPrint level.range format:"f")
-
-			MAXLancer.GetMeshMaterials level &materials &faces
-
-			-- List LOD materials and face count
-			for m = 1 to materials.count do (
-				if materials[m] == undefined then throw ("LOD mesh (" + level.name + ") has no material(s).")
-				
-				child.Nodes.add (formattedPrint m format:"02u" + ": " + materials[m].name + " (" + formattedPrint faces[m].numberSet format:"u" + " faces)")
-
-				if classOf materials[m] == DxMaterial then materialCount += 1
+			-- Face count is incorrect if level is editable poly. //  + " (" + formattedPrint (getNumFaces level) format:"u" + " faces)"
+			child = parent.Nodes.add ("Level " + formattedPrint index format:"u" + ": " + level.name)
+			child.Nodes.add ("Range: " + formattedPrint previousRange format:"f" + "-" + formattedPrint level.range format:"f")
+			
+			-- List materials
+			case classOf level.material of (
+				Multimaterial: (
+					local mCount = 0
+					
+					for m in level.material.materialList do child.Nodes.add (formattedPrint (mCount += 1) format:"02u" + ": " + m.name) 
+				)
+				default: child.Nodes.add ("01: " + level.material.name)
 			)
-
+			
 			OK
 		)
 
@@ -253,13 +255,17 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			local levels = MAXLancer.GetPartLevels part &wireframe
 			local child
 			local type
+			local range = 0
 
 			-- List LODs
 			if levels.count > 0 then (
 				child = parent.Nodes.add ("Levels (" + formattedPrint levels.count format:"u" + ")")
 				meshCount += levels.count
 
-				for i = 1 to levels.count do ListLevel levels[i] i child
+				for i = 1 to levels.count do (
+					ListLevel levels[i] i child previousRange:range
+					range = levels[i].range
+				)
 			)
 
 			if wireframe != undefined then (
