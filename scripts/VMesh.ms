@@ -963,23 +963,28 @@ struct VMeshLibrary (
 		local previousIndex  -- Previous knot vertex index
 		local vertexIndex    -- Current knot vertex index
 		local knotPosition   -- Current knot position vector
+		local knotHash       -- Current knot position vector hash
 		local vertexPosition -- Lookup vertex position vector
 		local edges = #()    -- Array of Point2
 
 		MAXLancer.WriteLog ("Parsing freeform wireframe (" + meshData.filename + "): " + target.name)
+
+		local vertexHashes = for v = 1 to meshData.vertexCount collect MAXLancer.Hash (RoundPoint3 meshData.positions[v] hashDecimal)
 
 		in coordsys origin for s = 1 to numSplines target do (
 			firstIndex = previousIndex = 0
 
 			for k = 1 to numKnots target s do (
 				knotPosition = getKnotPoint target s k
-				vertexIndex = 0
+				knotHash     = MAXLancer.Hash (RoundPoint3 knotPosition hashDecimal)
+				vertexIndex  = findItem vertexHashes knotHash
 
 				-- Find existing position
-				for v = wireData.vertexStart + 1 to meshData.vertexCount while vertexIndex == 0 where MAXLancer.Hash (RoundPoint3 knotPosition hashDecimal) == MAXLancer.Hash (RoundPoint3 meshData.positions[v] hashDecimal) do vertexIndex = v
+				-- for v = wireData.vertexStart + 1 to meshData.vertexCount while vertexIndex == 0 where MAXLancer.Hash (RoundPoint3 knotPosition hashDecimal) == MAXLancer.Hash (RoundPoint3 meshData.positions[v] hashDecimal) do vertexIndex = v
 
 				if vertexIndex == 0 then (
 					append meshData.positions knotPosition
+					append vertexHashes knotHash
 					vertexIndex = meshData.vertexCount += 1
 				)
 
@@ -1005,9 +1010,11 @@ struct VMeshLibrary (
 	),
 
 	-- Parse shape object by mapping spline knots to mesh vertices to create lines in VWireData
-	fn ParseMeshShape target meshRef origin epsilon:0.05 progress: = (
+	fn ParseMeshShape target meshRef origin epsilon:0.05 progress: hashDecimal: = (
 		if superClassOf target != shape then throw "Invalid shape object type"
 		if classOf meshRef != VMeshRef then throw "Invalid VMeshRef object"
+
+		if hashDecimal == unsupplied then hashDecimal = MAXLancer.hashDecimal
 
 		local meshData = GetMesh meshRef.meshID
 		if classOf meshData != VMeshData then throw ("Referenced mesh not found: " + formatID meshRef.meshID)
@@ -1019,9 +1026,12 @@ struct VMeshLibrary (
 		local vertexIndex    -- Current knot vertex index
 		local knotPosition   -- Current knot position vector
 		local vertexPosition -- Lookup vertex position vector
+		local knotHash       -- Current knot position vector hash
 		local edges = #()    -- Array of Point2
 
 		MAXLancer.WriteLog ("Parsing LOD mesh wireframe (" + meshData.filename + "): " + target.name)
+
+		local vertexHashes = for v = 1 to meshRef.vertexCount collect MAXLancer.Hash (RoundPoint3 meshData.positions[meshRef.vertexStart + v] hashDecimal)
 
 		-- Process each shape spline
 		in coordsys origin for s = 1 to numSplines target do (
@@ -1029,15 +1039,21 @@ struct VMeshLibrary (
 
 			-- Process each knot
 			for k = 1 to numKnots target s do (
-				knotPosition = getKnotPoint target s k
-				vertexIndex  = 0
+				-- knotPosition = getKnotPoint target s k
+				knotHash = MAXLancer.Hash (RoundPoint3 (getKnotPoint target s k) hashDecimal)
+
+				-- vertexIndex = 0
+
+				vertexIndex = findItem vertexHashes knotHash
 
 				-- Find matching point in VMeshData chunk specified by VMeshRef
+				/*
 				for v = 1 to meshRef.vertexCount while vertexIndex == 0 do (
 					vertexPosition = meshData.positions[meshRef.vertexStart + v]
 
 					if abs (knotPosition.x - vertexPosition.x) <= epsilon and abs (knotPosition.y - vertexPosition.y) <= epsilon and abs (knotPosition.z - vertexPosition.z) <= epsilon then vertexIndex = v
 				)
+				*/
 
 				if vertexIndex > 0 then (
 					if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop
