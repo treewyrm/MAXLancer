@@ -428,8 +428,8 @@ struct VMeshData (
 				for f in faces[m] do (
 					faceData     = 0
 					faceVertices = getFace targetSnap f
-					faceAlphas   = if vertexFormat.colors then meshOp.getMapFace targetSnap -2 f
-					faceColors   = if vertexFormat.colors then meshOp.getMapFace targetSnap 0 f
+					faceAlphas   = if hasVertexAlpha then meshOp.getMapFace targetSnap -2 f
+					faceColors   = if hasVertexColor then meshOp.getMapFace targetSnap 0 f
 					faceMaps     = for m = 1 to vertexFormat.maps collect meshop.getMapFace targetSnap m f
 
 					-- Collect smoothing groups
@@ -819,7 +819,7 @@ struct VMeshLibrary (
 	),
 
 	-- Create full buffer name from relative path to Freelancer and result filename, LOD level and 
-	fn CreateBufferName filename type vertexFormat prefixPath:true = (
+	fn GenerateBufferName filename type vertexFormat prefixPath:true = (
 		if classOf filename != string then throw "Invlaid buffer filename"
 		if classOf type != string then throw "Invalid buffer type"
 		if classOf vertexFormat != VMeshFVF then throw "Invalid VMeshFVF object"
@@ -860,10 +860,10 @@ struct VMeshLibrary (
 				-- VMeshData will contain one or more UV maps (D3DFVF_TEX1 to D3DFVF_TEX8)
 				if attribs.maps > 0 then vertexFormat.maps = attribs.maps
 
-				CreateBufferName (if attribs.filename.count > 0 then attribs.filename else filename) ("lod" + formattedPrint attribs.level format:"u") vertexFormat prefixPath:(attribs.filename.count == 0)
+				GenerateBufferName (if attribs.filename.count > 0 then attribs.filename else filename) ("lod" + formattedPrint attribs.level format:"u") vertexFormat prefixPath:(attribs.filename.count == 0)
 			)
 			(superClassOf target == shape): (
-				CreateBufferName filename "wire" vertexFormat
+				GenerateBufferName filename "wire" vertexFormat
 			)
 		)
 

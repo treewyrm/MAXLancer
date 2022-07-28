@@ -595,8 +595,10 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 				local items    = #() -- Array of AnimationScript
 
 				-- Check that all parts have correct type of transform controllers
+				for part in subparts where not MAXLancer.HasValidController part do part.transform.controller = MAXLancer.FixedJointController()
+
 				-- Set root controller to LooseController if it isn't already
-				root.transform.controller = LooseJointController()
+				if classOf root.transform.controller != MAXLancer.LooseJointController() then root.transform.controller = MAXLancer.LooseJointController()
 			
 				-- Enable layers on parts if need be
 				AnimLayerManager.enableLayers &parts pos:true rot:true scale:false other:true

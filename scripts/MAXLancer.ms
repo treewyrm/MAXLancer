@@ -262,6 +262,7 @@ global MAXLancer = (
 		fn CreateRigidPartHelper name = RigidPartHelper name:name,
 		fn IsRigidPartHelper target = isValidNode target and classOf target == RigidPartHelper,
 		fn IsRootRigidPartHelper target = isValidNode target and classOf target == RigidPartHelper and classOf parent != RigidPartHelper,
+		fn HasValidController target = isValidNode target and findItem #(FixedJointController, AxisJointController, SphericJointController, LooseJointController) (classOf target.transform.controller) > 0,
 
 		fn CreateHardpointHelper name = HardpointHelper name:name,
 		fn IsHardpointHelper target = isValidNode target and classOf target == HardpointHelper,
