@@ -969,7 +969,7 @@ struct VMeshLibrary (
 
 		MAXLancer.WriteLog ("Parsing freeform wireframe (" + meshData.filename + "): " + target.name)
 
-		local vertexHashes = for v = 1 to meshData.vertexCount collect MAXLancer.Hash (RoundPoint3 meshData.positions[v] hashDecimal)
+		local vertexHashes = #()
 
 		in coordsys origin for s = 1 to numSplines target do (
 			firstIndex = previousIndex = 0
@@ -985,7 +985,8 @@ struct VMeshLibrary (
 				if vertexIndex == 0 then (
 					append meshData.positions knotPosition
 					append vertexHashes knotHash
-					vertexIndex = meshData.vertexCount += 1
+					vertexIndex = vertexHashes.count
+					meshData.vertexCount += 1
 				)
 
 				if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop

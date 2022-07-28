@@ -1,6 +1,6 @@
 [Setup]
 AppName=MAXLancer
-AppVersion=0.95
+AppVersion=0.97
 Uninstallable=no
 WizardStyle=modern
 DefaultDirName={autopf}\Autodesk\3ds Max
