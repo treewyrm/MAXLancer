@@ -13,7 +13,6 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 		compound    type:#boolean    animatable:false ui:compoundCheckbox   default:false
 		multilevel  type:#boolean    animatable:false ui:multilevelCheckbox default:false
 		zerocenter  type:#boolean    animatable:false ui:zerocenterCheckbox default:false
-		wireSnap    type:#float      animatable:false ui:wireSnapSpinner    default:0.025
 		size        type:#worldUnits animatable:false ui:sizeSpinner        default:5.0
 		inertia     type:#worldUnits animatable:false ui:inertiaSpinner     default:1.0
 		damageModel type:#node       animatable:false
@@ -33,69 +32,10 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 	rollout PartRollout "Part Parameters" (
 		spinner sizeSpinner     "Dummy Size"      type:#float range:[0, 1000, 2]
 		spinner inertiaSpinner  "Hitbox Inertia?" type:#float range:[0, 100, 1] tooltip:"Hitbox part section unknown vector scaler. Zero on moveable parts causes colliding objects transformation nullified."
-		spinner wireSnapSpinner "Wireframe Snap"  type:#float range:[0.0001, 1, 0.025] tooltip:"Wireframe spline knot snapping strength."
 
 		checkbox compoundCheckbox   "Force Compound"        tooltip:"Exporting this part will force output to be compound model (.cmp)."
 		checkbox multilevelCheckbox "Force MultiLevel"      tooltip:"Force single LOD into MultiLevel with explicit LOD ranges. Does not affect parts with multiple LODs."
 		checkbox zerocenterCheckbox "Force LOD Center Zero" tooltip:"Force LOD bounding sphere center to zero. Enable for parts in starspheres."
-		
-		/*
-		group "Destructible" (
-			label damageModelLabel "Damage Model:"
-			button damageModelPicker "Pick Model" width:128 height:24 toolTip:"Assign damage model to this part."
-			button damageModelRemove "Remove" enabled:(isValidNode damageModel) width:88 height:24
-		)
-
-		on damageModelPicker pressed do (
-			local model = pickObject message:"Select rigid model to use as damage target." filter:filterRigidPart
-
-			if classOf model == RigidPartHelper then (
-				local connector = MAXLancer.FindHardpoint model "DpConnect"
-				local position = if connector == undefined then model.transform.translationpart else connector.transform.translationpart
-
-				local hardpoint = pickObject message:"Select attachment hardpoint for damage model." filter:filterHardpoint rubberBand:position
-
-				if classOf hardpoint == HardpointHelper then (
-					if connector == undefined then (
-						connector = copy hardpoint
-
-						connector.name = "DpConnect"
-						connector.parent = model
-					)
-
-					if classOf model.transform.controller != HardpointLinkController then model.transform.controller = HardpointLinkController()
-
-					local controller = model.transform.controller
-
-					controller.offset  = connector.transform * inverse model.transform
-					controller.target  = hardpoint
-					controller.preview = true
-
-					damageModel = model
-					damageModelPicker.caption = damageModel.name
-					damageModelRemove.enabled = true
-				)
-			)
-		)
-
-		on damageModelRemove pressed do if isValidNode damageModel then (
-			local controller = damageModel.transform.controller
-
-			if classOf controller == HardpointLinkController then (
-				controller.preview = false
-				controller.target  = undefined
-				controller.offset  = matrix3 1
-			)
-
-			damageModel = undefined
-			damageModelPicker.caption = "Pick Model"
-			damageModelRemove.enabled = false
-		)
-
-		on PartRollout open do (
-			if isValidNode damageModel then damageModelPicker.caption = damageModel.name
-		)
-		*/
 	)
 
 	rollout CameraRollout "Camera Parameters" (

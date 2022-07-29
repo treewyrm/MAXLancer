@@ -1011,7 +1011,7 @@ struct VMeshLibrary (
 	),
 
 	-- Parse shape object by mapping spline knots to mesh vertices to create lines in VWireData
-	fn ParseMeshShape target meshRef origin epsilon:0.05 progress: hashDecimal: = (
+	fn ParseMeshShape target meshRef origin progress: hashDecimal: = (
 		if superClassOf target != shape then throw "Invalid shape object type"
 		if classOf meshRef != VMeshRef then throw "Invalid VMeshRef object"
 
@@ -1040,21 +1040,8 @@ struct VMeshLibrary (
 
 			-- Process each knot
 			for k = 1 to numKnots target s do (
-				-- knotPosition = getKnotPoint target s k
-				knotHash = MAXLancer.Hash (RoundPoint3 (getKnotPoint target s k) hashDecimal)
-
-				-- vertexIndex = 0
-
+				knotHash    = MAXLancer.Hash (RoundPoint3 (getKnotPoint target s k) hashDecimal)
 				vertexIndex = findItem vertexHashes knotHash
-
-				-- Find matching point in VMeshData chunk specified by VMeshRef
-				/*
-				for v = 1 to meshRef.vertexCount while vertexIndex == 0 do (
-					vertexPosition = meshData.positions[meshRef.vertexStart + v]
-
-					if abs (knotPosition.x - vertexPosition.x) <= epsilon and abs (knotPosition.y - vertexPosition.y) <= epsilon and abs (knotPosition.z - vertexPosition.z) <= epsilon then vertexIndex = v
-				)
-				*/
 
 				if vertexIndex > 0 then (
 					if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop
@@ -1102,13 +1089,26 @@ struct VMeshLibrary (
 			ranges[i + 1] = levelMesh.range
 
 			-- Set LOD wireframe
-			if wireframes and wireframe == undefined and wireShape != undefined and wireShape.parent == levelMesh then wireframe = ParseMeshShape wireShape meshRef target.transform epsilon:target.wireSnap progress:progress
+			if wireframes and wireframe == undefined and wireShape != undefined and wireShape.parent == levelMesh then wireframe = ParseMeshShape wireShape meshRef target.transform progress:progress
 
 			levels[i] = meshRef
 		)
 
 		-- Freeform wireframe
 		if wireframe == undefined and wireShape != undefined then wireframe = ParseFreeShape wireShape (CreateBuffer wireShape filename) target.transform progress:progress
+
+		-- In absence of mesh but present wireframe create dummy VMeshRef with bounding box/sphere from wireframe positions instead
+		if MAXLancer.writeDummyVMeshRef and levels.count == 0 and wireframe != undefined then (
+			meshData = GetMesh wireframe.meshID
+			meshRef  = VMeshRef minimum:[3.4e38, 3.4e38, 3.4e38] maximum:[-3.4e38, -3.4e38, -3.4e38]
+
+			local points = for i in makeUniqueArray wireframe.indices collect meshData.positions[wireframe.vertexStart + i + 1]
+			
+			CalculateBoundingBox points &meshRef.minimum &meshRef.maximum 
+			CalculateBoundingSphere points &meshRef.center &meshRef.radius
+
+			append levels meshRef
+		)
 
 		OK
 	),
@@ -1252,6 +1252,7 @@ fn WriteLevels writer levels ranges = (
 			writer.CloseFolder() -- Close VMeshPart
 		) else if MAXLancer.writeDummyVMeshRef then ( -- Write dummy VMeshRef for compatibility
 			if not writer.OpenFolder "VMeshPart" then throw "Error writing VMeshPart"
+
 			(VMeshRef()).WriteUTF writer
 			writer.CloseFolder() -- Close VMeshPart
 		)
