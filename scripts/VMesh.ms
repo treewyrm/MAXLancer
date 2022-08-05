@@ -118,6 +118,21 @@ struct VMeshRef (
 
 	fn WriteUTF writer = if writer.OpenFile "VMeshRef" then WriteStream writer.data else throw "Error writing VMeshRef",
 
+	fn Extend p = (
+		minimum.x = amin minimum.x p.x
+		minimum.y = amin minimum.y p.y
+		minimum.z = amin minimum.z p.z
+
+		maximum.x = amax maximum.x p.x
+		maximum.y = amax maximum.y p.y
+		maximum.z = amax maximum.z p.z
+
+		center = 0.5 * (minimum + maximum)
+		radius = 0.5 * distance minimum maximum
+
+		OK
+	),
+
 	fn BuildBox parent = dummy name:(parent.name + "_Box") boxSize:(maximum - minimum) parent:parent transform:(PreTranslate parent.transform (0.5 * (minimum + maximum))),
 
 	fn BuildSphere parent = SphereGizmo name:(parent.name + "_Sphere") radius:radius parent:parent transform:(PreTranslate parent.transform center)
@@ -281,33 +296,27 @@ struct VMeshData (
 		OK
 	),
 
-	fn ReadStreamGroups stream &array = (
-		array.count = ReadShort stream #unsigned
-		for f = 1 to array.count do array[f] = ReadLong stream #unsigned
-
-		MAXLancer.WriteLog ("Read " + formattedPrint array.count format:"u" + " face data")
-		OK
-	),
-
-	fn WriteStreamGroups stream &array = (
-		WriteShort stream array.count
-		for f = 1 to array.count do WriteLong stream array[f] #unsigned
-
-		MAXLancer.WriteLog ("Wrote " + formattedPrint array.count format:"u" + " face data")
-		OK
-	),
-
 	fn ReadUTF reader buffers:true = (
 		if reader.OpenFile "VMeshData" then ReadStream reader.data buffers:buffers else throw "Error reading VMeshData"
-		if reader.OpenFile "FaceGroupData" then ReadStreamGroups reader.data &faceSGroups
-		if reader.OpenFile "FaceFlagsData" then ReadStreamGroups reader.data &faceFlags
+
+		-- Read face data for triangle list
+		if mode == 4 and reader.OpenFile "FaceData" then (
+			faceSGroups = for f = 1 to indices.count / 3 collect ReadLong reader.data #unsigned
+			faceFlags = for f = 1 to indices.count / 3 collect ReadByte reader.data #unsigned
+		)
+
 		OK
 	),
 
 	fn WriteUTF writer = (
 		if writer.OpenFile "VMeshData" then WriteStream writer.data else throw "Error writing VMeshData"
-		if faceSGroups.count > 0 and writer.OpenFile "FaceGroupData" then WriteStreamGroups writer.data &faceSGroups
-		if faceFlags.count > 0 and writer.OpenFile "FaceFlagsData" then WriteStreamGroups writer.data &faceFlags
+
+		-- Write face data for triangle list
+		if mode == 4 and writer.OpenFile "FaceData" then (
+			for f = 1 to faceSGroups.count do WriteLong writer.data faceSGroups[f] #unsigned
+			for f = 1 to faceFlags.count do WriteByte writer.data faceFlags[f] #unsigned
+		)
+
 		OK
 	),
 
@@ -461,11 +470,8 @@ struct VMeshData (
 							vertexHash = MAXLancer.Hash (RoundPoint3 vertexNormal hashDecimal) crc:vertexHash
 						)
 
-						-- Get edge visibility
-						local edgeVisible = getEdgeVis targetSnap f i
-
 						-- Write edge visibility into face flag as first three bits
-						faceData = bit.or faceData (bit.shift 1 (i - 1))
+						faceData = bit.set faceData i (getEdgeVis targetSnap f i)
 
 						-- Vertex diffuse color and transparency
 						if vertexFormat.colors then (
@@ -622,7 +628,7 @@ struct VMeshData (
 			for m = 1 to vertexFormat.maps do meshOp.setMapFace result m f faces[f]
 
 			-- Edge visibility from flags
-			if hasFaceFlags then for i = 1 to 3 do setEdgeVis result f i ((bit.and faceFlags[f] (bit.shift 1 (i - 1))) > 0)
+			if hasFaceFlags then for i = 1 to 3 do setEdgeVis result f i (bit.get faceFlags[faceIndex] i)
 
 			-- Vertex color and alpha
 			if vertexFormat.colors then (
@@ -862,9 +868,7 @@ struct VMeshLibrary (
 
 				GenerateBufferName (if attribs.filename.count > 0 then attribs.filename else filename) ("lod" + formattedPrint attribs.level format:"u") vertexFormat prefixPath:(attribs.filename.count == 0)
 			)
-			(superClassOf target == shape): (
-				GenerateBufferName filename "wire" vertexFormat
-			)
+			(superClassOf target == shape): GenerateBufferName filename "wire" vertexFormat
 		)
 
 		if buffername == undefined then throw (target.name + " has no mesh buffer name")
@@ -1026,13 +1030,13 @@ struct VMeshLibrary (
 		local previousIndex  -- Previous knot vertex index
 		local vertexIndex    -- Current knot vertex index
 		local knotPosition   -- Current knot position vector
+		local knotHash
 		local vertexPosition -- Lookup vertex position vector
-		local knotHash       -- Current knot position vector hash
 		local edges = #()    -- Array of Point2
 
 		MAXLancer.WriteLog ("Parsing LOD mesh wireframe (" + meshData.filename + "): " + target.name)
 
-		local vertexHashes = for v = 1 to meshRef.vertexCount collect MAXLancer.Hash (RoundPoint3 meshData.positions[meshRef.vertexStart + v] hashDecimal)
+		local vertexHashes = #()
 
 		-- Process each shape spline
 		in coordsys origin for s = 1 to numSplines target do (
@@ -1040,10 +1044,15 @@ struct VMeshLibrary (
 
 			-- Process each knot
 			for k = 1 to numKnots target s do (
-				knotHash    = MAXLancer.Hash (RoundPoint3 (getKnotPoint target s k) hashDecimal)
-				vertexIndex = findItem vertexHashes knotHash
+				knotPosition = getKnotPoint target s k
+				knotHash     = MAXLancer.Hash (RoundPoint3 knotPosition hashDecimal)
+				vertexIndex  = findItem vertexHashes knotHash
+
+				if vertexIndex == 0 then for v = 1 to meshRef.vertexCount while vertexIndex == 0 where distance meshData.positions[meshRef.vertexStart + v] knotPosition <= 0.025 do vertexIndex = v
 
 				if vertexIndex > 0 then (
+					vertexHashes[vertexIndex] = knotHash
+
 					if k == 1 then firstIndex = vertexIndex -- Remember first knot point index as origin for loop
 					else if k > 1 and previousIndex > 0 and vertexIndex > 0 and previousIndex != vertexIndex then append edges [previousIndex - 1, vertexIndex - 1]
 
@@ -1102,10 +1111,7 @@ struct VMeshLibrary (
 			meshData = GetMesh wireframe.meshID
 			meshRef  = VMeshRef minimum:[3.4e38, 3.4e38, 3.4e38] maximum:[-3.4e38, -3.4e38, -3.4e38]
 
-			local points = for i in makeUniqueArray wireframe.indices collect meshData.positions[wireframe.vertexStart + i + 1]
-			
-			CalculateBoundingBox points &meshRef.minimum &meshRef.maximum 
-			CalculateBoundingSphere points &meshRef.center &meshRef.radius
+			for i in makeUniqueArray wireframe.indices do meshRef.Extend meshData.positions[wireframe.vertexStart + i + 1]
 
 			append levels meshRef
 		)

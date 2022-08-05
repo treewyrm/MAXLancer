@@ -863,6 +863,16 @@ struct AnimationLibrary (
 			position = GetLayerController target.transform.controller.position.controller item.name
 			rotation = GetLayerController target.transform.controller.rotation.controller item.name
 
+			if position != undefined and classOf position != linear_position then (
+				position = SampleController position
+				if MAXLancer.animationSamplingOverwrite then SetLayerController target.transform.controller.position.controller item.name position
+			)
+
+			if rotation != undefined and classOf rotation != linear_rotation then (
+				rotation = SampleController rotation
+				if MAXLancer.animationSamplingOverwrite then SetLayerController target.transform.controller.rotation.controller item.name rotation
+			)
+
 			-- Combine keys
 			keys = #()
 

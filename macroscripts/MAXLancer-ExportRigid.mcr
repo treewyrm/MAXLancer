@@ -9,7 +9,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 	local target -- RigidPartHelper
 
 	-- Export .3db/.cmp
-	rollout ExportRigidRollout "Export Rigid Model" width:440 height:412 (
+	rollout ExportRigidRollout "Export Rigid Model" width:440 height:392 (
 		local compound       = false
 		local indexCount     = 0 -- Number of indices in all mesh references
 		local triangleCount  = 0 -- Number of triangles in all hulls
@@ -26,7 +26,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		
 		local extraModels -- TreeNode
 
-		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:380
+		dotNetControl treeBox "System.Windows.Forms.TreeView" pos:[8, 8] width:272 height:360
 
 		groupBox modelGroup "Model Resources:" pos:[288, 8] width:144 height:184
 		checkbox hardpointsCheckbox "Hardpoints" pos:[296, 28] width:128 height:16 toolTip:"Export model hardpoints to attach equipment."
@@ -38,17 +38,17 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 		checkbox destructibleCheckbox "Destructible Parts" pos:[296, 148] width:128 height:16 toolTip:"Export destructible parts attached to Dp* hardpoints."
 		checkbox animationsCheckbox "Compound Animations" pos:[296, 168] width:128 height:16 toolTip:"Export compound animations and embed animation library into model file."
 
-		groupBox surfaceGroup "Surfaces:" pos:[288, 200] width:144 height:84
+		groupBox surfaceGroup "Surfaces:" pos:[288, 200] width:144 height:64
 		checkbox surfacesCheckbox "Collision Surfaces" pos:[296, 220] width:128 height:16 toolTip:"Export surface hulls into hitbox."
 		checkbox surfacesForceConvex "Force Convex" pos:[296, 240] width:128 height:16 toolTip:"Rebuilds elements of surface hulls."
-		checkbox surfacesSimple "Aftermath Format" pos:[296, 260] width:128 height:16 toolTip:"Alternative surface format for Aftermath mod (export only)."
+		-- checkbox surfacesSimple "Aftermath Format" pos:[296, 260] width:128 height:16 toolTip:"Alternative surface format for Aftermath mod (export only)."
 
-		groupBox miscGroup "Miscellaneous:" pos:[288, 292] width:144 height:64
-		checkbox timestampsCheckbox "Timestamp Fragments" pos:[296, 312] width:128 height:16 toolTip:"Add timestamp marker to embedded .3db filenames."
-		checkbox versionCheckbox "Add Exporter Version" pos:[296, 332] width:128 height:16 checked:true toolTip:"Add exporter version entry into model file."
+		groupBox miscGroup "Miscellaneous:" pos:[288, 272] width:144 height:64
+		checkbox timestampsCheckbox "Timestamp Fragments" pos:[296, 292] width:128 height:16 toolTip:"Add timestamp marker to embedded .3db filenames."
+		checkbox versionCheckbox "Add Exporter Version" pos:[296, 312] width:128 height:16 checked:true toolTip:"Add exporter version entry into model file."
 
-		button exportButton "Export Model" pos:[288, 364] width:144 height:24
-		progressBar exportProgress "" pos:[8, 396] width:424 height:8
+		button exportButton "Export Model" pos:[288, 344] width:144 height:24
+		progressBar exportProgress "" pos:[8, 376] width:424 height:8
 		
 		fn ProgressCallback count = (
 			exportProgress.value = (progressCount += count) * 100.0 / (indexCount + triangleCount + lineCount)
@@ -61,7 +61,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			local materialLib  = MAXLancer.CreateMaterialLibrary()
 			local textureLib   = MAXLancer.CreateTextureLibrary()
 			local animationLib = if compound then MAXLancer.CreateAnimationLibrary()
-			local surfaceLib   = if surfacesSimple.checked then MAXLancer.CreateSimpleSurfaceLibrary() else MAXLancer.CreateSurfaceLibrary()
+			local surfaceLib   = MAXLancer.CreateSurfaceLibrary() -- if surfacesSimple.checked then MAXLancer.CreateSimpleSurfaceLibrary() else MAXLancer.CreateSurfaceLibrary()
 			local writer       = MAXLancer.CreateUTFWriter()
 			
 			result.filename = filename
@@ -106,7 +106,7 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			-- Parse and write surfaces
 			if surfacesCheckbox.checked and surfaceLib != undefined then (
 				surfaceLib.Parse target compound forceConvex:surfacesForceConvex.checked progress:ProgressCallback
-				surfaceLib.SaveFile (getFilenamePath filename + getFilenameFile filename + (if surfacesSimple.checked then ".rcd" else ".sur"))
+				surfaceLib.SaveFile (getFilenamePath filename + getFilenameFile filename + ".sur") -- (if surfacesSimple.checked then ".rcd" else ".sur"))
 			)
 			
 			-- Update filename
