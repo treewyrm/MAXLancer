@@ -31,6 +31,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 		local hullPartCount  = 0 -- Number of surface parts
 		local animationCount = 0 -- Number of animation scripts
 		local progressCount  = 0 -- Progress counter is based on number of mesh indices and hull triangles processed
+		local hardpointSize  = 1
 
 		local hashes = #() -- Array of hashes (integer)
 		local names  = #() -- Array of names (string)
@@ -102,6 +103,16 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 			if resolved then (
 				start = timeStamp()
 
+				local minimum = [0, 0, 0]
+				local maximum = [0, 0, 0]
+				local center  = [0, 0, 0]
+				local radius  = 1.0
+
+				model.GetBoundaries &minimum &maximum &center &radius
+
+				-- Ensure hardpoint size is at least minimum defined in settings
+				hardpointSize = amax MAXLancer.hardpointSize (floor (radius * 0.01))
+
 				-- Build LODs, hardpoints, wireframes
 				result = model.Build \
 					hardpoints:      hardpointsCheckbox.checked \
@@ -111,6 +122,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 					materialLib:     (if materialsCheckbox.checked then materialLib) \
 					textureLib:      (if materialsCheckbox.checked then textureLib) \
 					smoothingGroups: smoothingGroupsCheckbox.checked \
+					hardpointSize:   hardpointSize \
 					progress:        ProgressCallback
 				
 				-- Buils surfaces

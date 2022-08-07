@@ -683,6 +683,8 @@ struct SurfacePart (
 
 				for f = 1 to getNumFaces hull do setFaceSmoothGroup hull f 1
 
+				if classOf progress == MAXScriptFunction then progress (getNumFaces hull)
+
 				hull.parent    = if isValidNode result then result else target
 				hull.transform = target.transform
 				hull.wireColor = hullColor

@@ -170,7 +170,7 @@ struct RigidPart (
 	),
 
 	-- Build RigidPartHelper from RigidPart
-	fn Build hardpoints:true wireframes:true boundaries:false smoothingGroups:false meshLib: materialLib: textureLib: size:(MAXLancer.partSize) origin:(Matrix3 1) progress: = (
+	fn Build hardpoints:true wireframes:true boundaries:false smoothingGroups:false meshLib: materialLib: textureLib: size:(MAXLancer.partSize) hardpointSize:(MAXLancer.hardpointSize) origin:(Matrix3 1) progress: = (
 		local helperName = if name.count > 0 then name else filename
 
 		MAXLancer.WriteLog ("Building rigid part: " + helperName)
@@ -185,7 +185,7 @@ struct RigidPart (
 			result.zNear    = camera.zNear
 			result.zFar     = camera.zFar
 		) else (
-			if hardpoints then BuildHardpoints result this.hardpoints
+			if hardpoints then BuildHardpoints result this.hardpoints size:hardpointSize
 			if classOf meshLib == VMeshLibrary then meshLib.BuildLevels result levels ranges wireframe wireframes:wireframes boundaries:boundaries smoothingGroups:smoothingGroups materialLib:materialLib textureLib:textureLib progress:progress
 		)
 
@@ -345,7 +345,7 @@ struct RigidCompound (
 	),
 
 	-- Build RigidCompound model into scene
-	fn Build hardpoints:true wireframes:true boundaries:false smoothingGroups:false meshLib: materialLib: textureLib: progress: origin:(Matrix3 1) size:(MAXLancer.partSize) = (
+	fn Build hardpoints:true wireframes:true boundaries:false smoothingGroups:false meshLib: materialLib: textureLib: progress: origin:(Matrix3 1) size:(MAXLancer.partSize) hardpointSize:(MAXLancer.hardpointSize) = (
 		if classOf root != RigidPart then throw "Compound model is missing Root part."
 
 		MAXLancer.WriteLog ("Building compound model: " + filename)
@@ -363,7 +363,7 @@ struct RigidCompound (
 				hardpoints:hardpoints wireframes:wireframes boundaries:boundaries \
 				smoothingGroups:smoothingGroups \
 				meshLib:meshLib materialLib:materialLib textureLib:textureLib \
-				size:size origin:iterator.current.transform progress:progress 
+				size:size hardpointSize:hardpointSize origin:iterator.current.transform progress:progress 
 
 			-- Part is root
 			if iterator.current.child == root then (

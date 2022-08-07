@@ -225,6 +225,15 @@ struct VMeshData (
 
 	on create do for m = 1 to vertexFormat.maps do maps[m] = #(),
 
+	fn GetFaceCount = (
+		case mode of (
+			4: indices.count / 3
+			5: indices.count - 2
+			6: indices.count - 1
+			default: 0
+		)
+	),
+
 	fn ReadStream stream buffers:true = (
 		version       = ReadLong  stream #unsigned
 		mode          = ReadLong  stream #unsigned
@@ -299,10 +308,12 @@ struct VMeshData (
 	fn ReadUTF reader buffers:true = (
 		if reader.OpenFile "VMeshData" then ReadStream reader.data buffers:buffers else throw "Error reading VMeshData"
 
+		local faceCount = GetFaceCount()
+
 		-- Read face data for triangle list
-		if mode == 4 and reader.OpenFile "FaceData" then (
-			faceSGroups = for f = 1 to indices.count / 3 collect ReadLong reader.data #unsigned
-			faceFlags = for f = 1 to indices.count / 3 collect ReadByte reader.data #unsigned
+		if faceCount > 0 and reader.OpenFile "FaceData" then (
+			faceSGroups = for f = 1 to faceCount collect ReadLong reader.data #unsigned
+			faceFlags   = for f = 1 to faceCount collect ReadByte reader.data #unsigned
 		)
 
 		OK
@@ -311,10 +322,12 @@ struct VMeshData (
 	fn WriteUTF writer = (
 		if writer.OpenFile "VMeshData" then WriteStream writer.data else throw "Error writing VMeshData"
 
+		local faceCount = GetFaceCount()
+
 		-- Write face data for triangle list
-		if mode == 4 and writer.OpenFile "FaceData" then (
-			for f = 1 to faceSGroups.count do WriteLong writer.data faceSGroups[f] #unsigned
-			for f = 1 to faceFlags.count do WriteByte writer.data faceFlags[f] #unsigned
+		if faceSGroups.count == faceCount and faceFlags.count == faceCount and writer.OpenFile "FaceData" then (
+			for f = 1 to faceCount do WriteLong writer.data faceSGroups[f] #unsigned
+			for f = 1 to faceCount do WriteByte writer.data faceFlags[f]   #unsigned
 		)
 
 		OK
@@ -586,7 +599,9 @@ struct VMeshData (
 
 		-- Collect faces and unique materialIDs
 		for g = 1 to meshRef.groupCount do (
-			for i = indexStart + 1 to indexStart += groups[meshRef.groupStart + g].indexCount by 3 do append faces ([indices[i], indices[i + 1], indices[i + 2]] + groups[meshRef.groupStart + g].vertexStart + 1)
+			for i = indexStart + 1 to indexStart += groups[meshRef.groupStart + g].indexCount by 3 do
+				append faces ([indices[i], indices[i + 1], indices[i + 2]] + groups[meshRef.groupStart + g].vertexStart + 1)
+
 			appendIfUnique materialIDs groups[meshRef.groupStart + g].materialID
 		)
 
@@ -618,19 +633,21 @@ struct VMeshData (
 
 		-- Apply channel map indices to face vertices (UVs, vertex color, alpha)
 		for f = 1 to faces.count do (
-			faceSmoothGroup = if vertexFormat.normals then 0 else 1
 			faceIndex += 1
+			
+			faceSmoothGroup = if vertexFormat.normals then 0 else 1
 
+			-- Set smoothing group
 			if hasSmoothingGroups then faceSmoothGroup = faceSGroups[faceIndex]
 			if smoothingGroups then setFaceSmoothGroup result f faceSmoothGroup
 			
-			-- UV maps
+			-- Set UV maps indices
 			for m = 1 to vertexFormat.maps do meshOp.setMapFace result m f faces[f]
 
-			-- Edge visibility from flags
+			-- Set edge visibility
 			if hasFaceFlags then for i = 1 to 3 do setEdgeVis result f i (bit.get faceFlags[faceIndex] i)
 
-			-- Vertex color and alpha
+			-- Set vertex color and alpha map indices
 			if vertexFormat.colors then (
 				meshOp.setMapFace result 0 f faces[f]
 				meshOp.setMapFace result -2 f faces[f]
@@ -676,6 +693,9 @@ struct VMeshData (
 			meshGroup = groups[meshRef.groupStart + g]
 
 			for f = faceIndex + 1 to faceIndex += meshGroup.indexCount / 3 do setFaceMatID result f (findItem materialIDs meshGroup.materialID)
+
+			-- Update progress
+			if classOf progress == MAXScriptFunction then progress meshGroup.indexCount
 		)
 
 		custAttributes.add result VMeshAttributes
@@ -683,9 +703,6 @@ struct VMeshData (
 		result.normals = vertexFormat.normals
 		result.colors  = vertexFormat.colors
 		result.maps    = vertexFormat.maps
-
-		-- Update progress
-		if classOf progress == MAXScriptFunction then progress meshRef.indexCount
 		
 		result -- Return Editable_mesh
 	)

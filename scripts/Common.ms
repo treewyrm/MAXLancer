@@ -826,3 +826,9 @@ fn GenerateWireframe target = if classOf target == Editable_mesh then in coordsy
 	AddToLayer "Wireframes" result
 	result -- Return Line
 )
+
+-- Read indices array as triangle list into face array
+fn TriangleListAsFaces indices = if kindof indices Array then for i = 1 to indices.count by 3 collect [indices[i], indices[i + 1], indices[i + 2]] + 1
+
+-- Read indices array as triangle strip into face array
+fn TriangleStripAsFaces indices = if kindof indices Array then for i = 1 to indices.count - 2 collect if mod i 2 == 0 then [indices[i + 2], indices[i + 1], indices[i]] + 1 else [indices[i], indices[i + 1], indices[i + 2]] + 1
