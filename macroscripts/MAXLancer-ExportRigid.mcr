@@ -222,10 +222,15 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 			OK
 		)
 
+		fn ListMaterial name index parent = (
+			parent.Nodes.add (formattedPrint index format:"02u" + ": " + name)
+			materialCount += 1
+			OK
+		)
+
 		fn ListLevel level index parent previousRange:0 = (
 			local child
-			-- local materials
-			-- local faces
+			local groupCount = 0
 
 			indexCount += case level.mode of (
 				1: getNumVerts level
@@ -233,18 +238,13 @@ macroscript ExportRigid category:"MAXLancer" tooltip:"Export Rigid" buttontext:"
 				default: 0
 			)
 
-			-- Face count is incorrect if level is editable poly. //  + " (" + formattedPrint (getNumFaces level) format:"u" + " faces)"
 			child = parent.Nodes.add ("Level " + formattedPrint index format:"u" + ": " + level.name)
 			child.Nodes.add ("Range: " + formattedPrint previousRange format:"f" + "-" + formattedPrint level.range format:"f")
 			
 			-- List materials
 			case classOf level.material of (
-				Multimaterial: (
-					local mCount = 0
-					
-					for m in level.material.materialList do child.Nodes.add (formattedPrint (mCount += 1) format:"02u" + ": " + m.name) 
-				)
-				default: child.Nodes.add ("01: " + level.material.name)
+				Multimaterial: for material in level.material.materialList do ListMaterial material.name (groupCount += 1) child
+				default: ListMaterial level.material.name 1 child
 			)
 			
 			OK
