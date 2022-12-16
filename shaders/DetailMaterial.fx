@@ -71,6 +71,7 @@ float4 Detail_PS(Pixel Input) : SV_TARGET {
 
 technique11 BtDetailMapMaterial {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetVertexShader(CompileShader(vs_5_0, Detail_VS()));
 		SetGeometryShader(NULL);
 		SetPixelShader(CompileShader(ps_5_0, Detail_PS()));
@@ -79,6 +80,7 @@ technique11 BtDetailMapMaterial {
 
 technique11 BtDetailMapTwoMaterial {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetRasterizerState(TwoSided);
 		SetVertexShader(CompileShader(vs_5_0, Detail_VS()));
 		SetGeometryShader(NULL);

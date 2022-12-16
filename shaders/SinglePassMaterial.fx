@@ -93,6 +93,7 @@ float4 EcEt_PS(Pixel Input) : SV_TARGET {
 
 technique11 DcDt {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetVertexShader(CompileShader(vs_5_0, Basic_VS()));
 		SetGeometryShader(NULL);
 		SetPixelShader(CompileShader(ps_5_0, DcDt_PS()));
@@ -101,6 +102,7 @@ technique11 DcDt {
 
 technique11 DcDtTwo {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetRasterizerState(TwoSided);
 		SetVertexShader(CompileShader(vs_5_0, Basic_VS()));
 		SetGeometryShader(NULL);
@@ -110,6 +112,7 @@ technique11 DcDtTwo {
 
 technique11 DcDtEc {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetVertexShader(CompileShader(vs_5_0, Basic_VS()));
 		SetGeometryShader(NULL);
 		SetPixelShader(CompileShader(ps_5_0, DcDtEc_PS()));
@@ -118,6 +121,7 @@ technique11 DcDtEc {
 
 technique11 DcDtEcTwo {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetRasterizerState(TwoSided);
 		SetVertexShader(CompileShader(vs_5_0, Basic_VS()));
 		SetGeometryShader(NULL);
@@ -165,6 +169,7 @@ technique11 DcDtEcOcOtTwo < int isTransparent = 1; > {
 
 technique11 EcEt {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetVertexShader(CompileShader(vs_5_0, Basic_VS()));
 		SetGeometryShader(NULL);
 		SetPixelShader(CompileShader(ps_5_0, EcEt_PS()));
@@ -173,6 +178,7 @@ technique11 EcEt {
 
 technique11 DcDtEt {
 	pass p0 {
+		SetDepthStencilState(DepthTestWrite, 0);
 		SetVertexShader(CompileShader(vs_5_0, Basic_VS()));
 		SetGeometryShader(NULL);
 		SetPixelShader(CompileShader(ps_5_0, DcDtEt_PS()));
