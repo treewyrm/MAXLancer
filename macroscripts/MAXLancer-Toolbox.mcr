@@ -768,9 +768,9 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 			source.hullSize = hullSizeSpinner.value
 		)
 		
-		on mirrorXButton pressed do mirrorHardpoints selection 1 mirrorFlipLimits.checked
-		on mirrorYButton pressed do mirrorHardpoints selection 2 mirrorFlipLimits.checked
-		on mirrorZButton pressed do mirrorHardpoints selection 3 mirrorFlipLimits.checked
+		on mirrorXButton pressed do mirrorHardpoint selection 1 mirrorFlipLimits.checked
+		on mirrorYButton pressed do mirrorHardpoint selection 2 mirrorFlipLimits.checked
+		on mirrorZButton pressed do mirrorHardpoint selection 3 mirrorFlipLimits.checked
 
 		fn FilterSource hardpoint = MAXLancer.IsHardpointHelper hardpoint
 		fn FilterTarget hardpoint = MAXLancer.IsHardpointHelper hardpoint and hardpoint != source
