@@ -463,7 +463,7 @@ struct VMeshData (
 
 						-- Vertex position (relative to target.parent)
 						vertexPosition = meshOp.getVert targetSnap faceVertices[i]
-						vertexHash = MAXLancer.Hash (RoundPoint3 vertexPosition hashDecimal)
+						vertexHash = MAXLancer.Hash64 (RoundPoint3 vertexPosition hashDecimal)
 
 						-- Update VMeshRef bounding box
 						meshRef.minimum.x = amin meshRef.minimum.x vertexPosition.x
@@ -480,7 +480,7 @@ struct VMeshData (
 						-- Vertex normal (relative to target.parent)
 						if vertexFormat.normals then (
 							vertexNormal = normalsMod.GetNormal (normalsMod.GetNormalID f i)
-							vertexHash = MAXLancer.Hash (RoundPoint3 vertexNormal hashDecimal) crc:vertexHash
+							vertexHash = MAXLancer.Hash64 (RoundPoint3 vertexNormal hashDecimal) crc:vertexHash
 						)
 
 						-- Write edge visibility into face flag as first three bits
@@ -491,16 +491,19 @@ struct VMeshData (
 							diffuseAlpha = 0xFF * (if hasVertexAlpha then meshOp.getMapVert targetSnap -2 faceAlphas[i] else [1, 1, 1])
 							diffuseColor = 0xFF * (if hasVertexColor then meshOp.getMapVert targetSnap 0 faceColors[i] else [1, 1, 1])
 							vertexColor  = color diffuseColor.x diffuseColor.y diffuseColor.z ((diffuseAlpha.x + diffuseAlpha.y + diffuseAlpha.z) / 3)
-							vertexHash   = MAXLancer.Hash vertexColor crc:vertexHash
+							vertexHash   = MAXLancer.Hash64 vertexColor crc:vertexHash
 						)
 						
 						-- Vertex texture maps
 						for m = 1 to faceMaps.count do (
 							vertexMaps[m] = if hasVertexMaps[m] then meshOp.getMapVert targetSnap m faceMaps[m][i] else [0, 0, 0]
-							vertexHash    = MAXLancer.Hash (RoundPoint3 vertexMaps[m] hashDecimal) crc:vertexHash
+							vertexHash    = MAXLancer.Hash64 (RoundPoint3 vertexMaps[m] hashDecimal) crc:vertexHash
 						)
 
 						vertexIndex = findItem groupHashes vertexHash
+
+						-- Safety check in case of hash collision
+						if vertexIndex > 0 and (not close_enough positions[vertexIndex].x vertexPosition.x 10 or not close_enough positions[vertexIndex].y vertexPosition.y 10 or not close_enough positions[vertexIndex].z vertexPosition.z 10) then vertexIndex = 0
 
 						-- When no match was found add vertex attribute to buffer
 						if vertexIndex == 0 then (

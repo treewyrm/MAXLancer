@@ -312,6 +312,7 @@ global MAXLancer = (
 
 		-- Hash any valid input
 		fn Hash input crc:-1 caseSensitive:false force:false = FLCRC.Hash input crc:crc caseSensitive:caseSensitive force:force,
+		fn Hash64 input crc:-1 caseSensitive:false force:false = FLCRC.Hash64 input crc:crc caseSensitive:caseSensitive force:force,
 
 		-- Request to locate resources for library 
 		fn FindResources filename missing library &search type fileTypes allMaterials:false = (ResourceFinder filename:filename missing:missing library:library search:search type:type fileTypes:fileTypes allMaterials:allMaterials).Find(),
@@ -591,7 +592,7 @@ global MAXLancer = (
 		fn SearchTextures textures location:freelancerPath masks:#("*.mat", "*.txm") displayProgress:true = SearchResources textures "Texture library" location:location masks:masks displayProgress:displayProgress,
 
 		-- Search for mesh buffers
-		fn SearchVMeshes meshes location:freelancerPath masks:#("*.mat", "*.txm") displayProgress:true = SearchResources meshes "VMeshLibrary" location:location masks:masks displayProgress:displayProgress,
+		fn SearchVMeshes meshes location:freelancerPath masks:#("*.vms", "*.3db", "*.cmp") displayProgress:true = SearchResources meshes "VMeshLibrary" location:location masks:masks displayProgress:displayProgress,
 
 		fn Initialize = (
 			errorCount = 0

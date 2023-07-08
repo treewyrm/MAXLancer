@@ -911,9 +911,6 @@ macroScript Toolbox category:"MAXLancer" tooltip:"MAXLancer Panel" buttontext:"M
 
 	-- Assisstance tools for system editing (copying coordinates and rotation angles)
 	rollout SystemToolsRollout "System Tools" (
-
-
-
 	)
 
 	fn OpenToolbox = (

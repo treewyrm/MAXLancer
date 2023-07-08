@@ -338,7 +338,7 @@ fn ReadCompound reader constraints archetype &scaler: = (
 	constraints.count = 0 -- Reset constraints
 
 	ReadConstraints reader parts constraints
-	if parts.count - 1 != constraints.count then throw "Invalid number of constraints."
+	-- if parts.count - 1 != constraints.count then throw "Invalid number of constraints."
 
 	reader.CloseFolder() -- Close Cmpnd
 

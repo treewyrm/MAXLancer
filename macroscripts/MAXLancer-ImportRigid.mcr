@@ -110,6 +110,9 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 
 				model.GetBoundaries &minimum &maximum &center &radius
 
+				-- In case model has no boundaries (i.e. no LOD meshes)
+				if radius == undefined then radius = 1.0
+
 				-- Ensure hardpoint size is at least minimum defined in settings
 				hardpointSize = amax MAXLancer.hardpointSize (floor (radius * 0.01))
 
@@ -122,6 +125,7 @@ macroscript ImportRigid category:"MAXLancer" tooltip:"Import Rigid" buttontext:"
 					materialLib:     (if materialsCheckbox.checked then materialLib) \
 					textureLib:      (if materialsCheckbox.checked then textureLib) \
 					smoothingGroups: smoothingGroupsCheckbox.checked \
+					size:            hardpointSize \
 					hardpointSize:   hardpointSize \
 					progress:        ProgressCallback
 				

@@ -23,6 +23,15 @@ fn PackColor c = c.b + (bit.shift c.g 8) + (bit.shift c.r 16) + (bit.shift c.a 2
 -- Rebuilds W component of quaternion given only XYZ
 fn RebuidQuat v = quat v.x v.y v.z (sqrt (1.0 - v.x * v.x - v.y * v.y - v.z * v.z))
 
+-- Linear interpolate numbers
+fn Linear a b t = a * (1 - t) + b * t
+
+-- Linear interpolate Point3
+fn LinearPoint3 a b t = Point3 (Linear a.x b.x t) (Linear a.y b.y t) (Linear a.z b.z t)
+
+-- Linear interpolate Color
+fn LinearColor3 a b t = Color (Linear a.r b.r t) (Linear a.g b.g t) (Linear a.b b.b t)
+
 -- Read Point2 from stream
 fn ReadPoint2 stream p = (
 	p.x = ReadFloat stream
