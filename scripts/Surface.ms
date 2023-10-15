@@ -340,7 +340,7 @@ struct SurfacePart (
 	center     = [0, 0, 0], -- Center of mass, used for aiming reticle
 	radius     = 0.0,       -- Radius of sphere encompassing all hulls
 	scaler     = 1.0,       -- Down-scale factor of sphere radius encompassing only non-hardpoint hulls
-	inertia    = [0, 0, 0], -- Inertia vector
+	drag       = [0, 0, 0], -- Linear drag
 	unknown    = [0, 0, 0], -- Unused vector
 	hardpoints = #(),       -- Array of Integer
 	points     = #(),       -- Array of SurfacePoint
@@ -579,8 +579,7 @@ struct SurfacePart (
 
 			radius = maxRadius
 			scaler = minRadius / maxRadius
-
-			if inertia == [0, 0, 0] then inertia = [0, 0, radius * target.inertia] * rotateYPRMatrix (random -360.0 360.0) (random -360.0 360.0) (random -360.0 360.0)
+			drag   = [target.dragX, target.dragY, target.dragZ]
 
 			this.center = center
 		)
@@ -591,6 +590,10 @@ struct SurfacePart (
 	-- Build SurfacePart for RigidPartHelper
 	fn Build target compound centers:true extents:false nodes:false wraps:false hulls:true epsilon:0.5 progress: = (
 		if classOf target != RigidPartHelper then throw "Invalid Rigid part helper object."
+
+		target.dragX = drag.x
+		target.dragY = drag.y
+		target.dragZ = drag.z
 
 		-- Build bounding box and bounding sphere
 		if extents then (
@@ -726,7 +729,7 @@ struct SurfacePart (
 		local endOffset   = startOffset + size
 
 		ReadPosition stream center  -- Bounding box center
-		ReadPosition stream inertia -- Inertia vector for dynamic parts
+		ReadPosition stream drag    -- Linear drag vector
 
 		radius = ReadFloat stream -- Bounding box radius
 
@@ -879,7 +882,7 @@ struct SurfacePart (
 		-- Write header
 		WriteLong     stream (endOffset - startOffset) #unsigned
 		WritePosition stream center
-		WritePosition stream inertia
+		WritePosition stream drag
 		WriteFloat    stream radius
 		WriteLong     stream (bit.or (int (scaler * 0xFA)) (bit.shift (endOffset - startOffset) 8)) #unsigned
 		WriteLong     stream (nodesStartOffset - startOffset) #unsigned

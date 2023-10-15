@@ -14,7 +14,9 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 		multilevel  type:#boolean    animatable:false ui:multilevelCheckbox default:false
 		zerocenter  type:#boolean    animatable:false ui:zerocenterCheckbox default:false
 		size        type:#worldUnits animatable:false ui:sizeSpinner        default:5.0
-		inertia     type:#worldUnits animatable:false ui:inertiaSpinner     default:1.0
+		dragX       type:#float      animatable:false ui:dragXSpinner       default:1.0
+		dragY       type:#float      animatable:false ui:dragYSpinner       default:1.0
+		dragZ       type:#float      animatable:false ui:dragZSpinner       default:1.0
 		damageModel type:#node       animatable:false
 	)
 
@@ -30,8 +32,13 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 	fn filterHardpoint target = classOf target == HardpointHelper
 
 	rollout PartRollout "Part Parameters" (
-		spinner sizeSpinner     "Dummy Size"      type:#float range:[0, 1000, 2]
-		spinner inertiaSpinner  "Hitbox Inertia?" type:#float range:[0, 100, 1] tooltip:"Hitbox part section unknown vector scaler. Zero on moveable parts causes colliding objects transformation nullified."
+		spinner sizeSpinner     "Dummy Size"  type:#float range:[0, 1000, 2]
+
+		group "Linear Drag" (
+			spinner dragXSpinner "X" type:#float range:[0, 3.4e38, 1]
+			spinner dragYSpinner "Y" type:#float range:[0, 3.4e38, 1]
+			spinner dragZSpinner "Z" type:#float range:[0, 3.4e38, 1]
+		)
 
 		checkbox compoundCheckbox   "Force Compound"        tooltip:"Exporting this part will force output to be compound model (.cmp)."
 		checkbox multilevelCheckbox "Force MultiLevel"      tooltip:"Force single LOD into MultiLevel with explicit LOD ranges. Does not affect parts with multiple LODs."
