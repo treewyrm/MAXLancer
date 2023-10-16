@@ -17,6 +17,7 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 		dragX       type:#float      animatable:false ui:dragXSpinner       default:1.0
 		dragY       type:#float      animatable:false ui:dragYSpinner       default:1.0
 		dragZ       type:#float      animatable:false ui:dragZSpinner       default:1.0
+		autoDrag    type:#boolean    animatable:false ui:autoDragCheckbox   default:true
 		damageModel type:#node       animatable:false
 	)
 
@@ -38,6 +39,8 @@ plugin Helper RigidPartHelper classID:#(0x4C58414D, 0x74726170) name:"Rigid" cat
 			spinner dragXSpinner "X" type:#float range:[0, 3.4e38, 1]
 			spinner dragYSpinner "Y" type:#float range:[0, 3.4e38, 1]
 			spinner dragZSpinner "Z" type:#float range:[0, 3.4e38, 1]
+
+			checkbox autoDragCheckbox "Automatic" tooltip:"Generate automatically from hull boundary sphere radius."
 		)
 
 		checkbox compoundCheckbox   "Force Compound"        tooltip:"Exporting this part will force output to be compound model (.cmp)."

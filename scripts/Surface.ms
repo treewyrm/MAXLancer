@@ -581,6 +581,8 @@ struct SurfacePart (
 			scaler = minRadius / maxRadius
 			drag   = [target.dragX, target.dragY, target.dragZ]
 
+			if target.autoDrag then drag = [0, 0, radius] * rotateYPRMatrix (random 0.0 90) (random -90.0 0) 0
+
 			this.center = center
 		)
 
@@ -591,9 +593,10 @@ struct SurfacePart (
 	fn Build target compound centers:true extents:false nodes:false wraps:false hulls:true epsilon:0.5 progress: = (
 		if classOf target != RigidPartHelper then throw "Invalid Rigid part helper object."
 
-		target.dragX = drag.x
-		target.dragY = drag.y
-		target.dragZ = drag.z
+		target.dragX    = drag.x
+		target.dragY    = drag.y
+		target.dragZ    = drag.z
+		target.autoDrag = false
 
 		-- Build bounding box and bounding sphere
 		if extents then (
