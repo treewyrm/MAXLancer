@@ -581,7 +581,11 @@ struct SurfacePart (
 			scaler = minRadius / maxRadius
 			drag   = [target.dragX, target.dragY, target.dragZ]
 
-			if target.autoDrag then drag = [0, 0, radius] * rotateYPRMatrix (random 0.0 90) (random -90.0 0) 0
+			if target.autoDrag then drag = [radius, radius, radius] * rotateYPRMatrix (random -5.0 5) (random -5.0 5) (random -5.0 5)
+
+			drag.x = abs drag.x
+			drag.y = abs drag.y
+			drag.z = abs drag.z
 
 			this.center = center
 		)
@@ -592,6 +596,8 @@ struct SurfacePart (
 	-- Build SurfacePart for RigidPartHelper
 	fn Build target compound centers:true extents:false nodes:false wraps:false hulls:true epsilon:0.5 progress: = (
 		if classOf target != RigidPartHelper then throw "Invalid Rigid part helper object."
+
+		MAXLancer.WriteLog ("Surface Linear Drag: " + formattedPrint drag format:".8f")
 
 		target.dragX    = drag.x
 		target.dragY    = drag.y
@@ -732,7 +738,7 @@ struct SurfacePart (
 		local endOffset   = startOffset + size
 
 		ReadPosition stream center  -- Bounding box center
-		ReadPosition stream drag    -- Linear drag vector
+		ReadPoint3   stream drag    -- Linear drag vector
 
 		radius = ReadFloat stream -- Bounding box radius
 
@@ -885,7 +891,7 @@ struct SurfacePart (
 		-- Write header
 		WriteLong     stream (endOffset - startOffset) #unsigned
 		WritePosition stream center
-		WritePosition stream drag
+		WritePoint3   stream drag
 		WriteFloat    stream radius
 		WriteLong     stream (bit.or (int (scaler * 0xFA)) (bit.shift (endOffset - startOffset) 8)) #unsigned
 		WriteLong     stream (nodesStartOffset - startOffset) #unsigned
