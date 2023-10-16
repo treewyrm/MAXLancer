@@ -546,8 +546,8 @@ fn GetCompoundJoint target approximation:10 root:false = (
 		default:                in coordsys parent target.transform
 	)
 	
-	local scalepart = joint.transform.scalepart
-	if not (close_enough scalepart.x 1.0 approximation and close_enough scalepart.y 1.0 approximation and close_enough scalepart.z 1.0 approximation) then throw ("Part node \"" + target.name + "\" has invalid transform scaling: " + scalepart)
+	-- local scalepart = joint.transform.scalepart
+	-- if not (close_enough scalepart.x 1.0 approximation and close_enough scalepart.y 1.0 approximation and close_enough scalepart.z 1.0 approximation) then throw ("Part node \"" + target.name + "\" has invalid transform scaling: " + scalepart)
 
 	joint -- Return *Joint
 )
