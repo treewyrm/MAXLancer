@@ -71,8 +71,8 @@ struct FLCRC32 (
 			Float:  HashInteger64 (bit.floatAsInt input) crc
 			Double: HashInteger64 (bit.doubleAsInt64 input) crc
 			Color:  HashInteger64 (PackColor input) crc
-			Point2: bit.xor (HashInteger64 (bit.floatAsInt input.x) crc) (HashInteger64 (bit.floatAsInt input.y) crc)
-			Point3: bit.xor (HashInteger64 (bit.floatAsInt input.z) crc) (bit.xor (HashInteger64 (bit.floatAsInt input.x) crc) (HashInteger64 (bit.intAsFloat input.y) crc))
+			Point2: HashInteger64 (bit.doubleAsInt64 input.y) (HashInteger64 (bit.doubleAsInt64 input.x) crc) 
+			Point3: HashInteger64 (bit.doubleAsInt64 input.z) (HashInteger64 (bit.doubleAsInt64 input.y) (HashInteger64 (bit.doubleAsInt64 input.x) crc))
 		)
 	),
 
