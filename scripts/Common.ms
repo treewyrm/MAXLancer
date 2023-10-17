@@ -504,6 +504,8 @@ fn GetMeshMaterials target &materials &faces = (
 		Editable_Poly: polyop.getFaceMatID
 	)
 
+	local index = 0
+
 	case classOf target.material of (
 		MultiMaterial: (
 
@@ -511,7 +513,7 @@ fn GetMeshMaterials target &materials &faces = (
 			local subfaces = for i = 1 to target.material.materialIDList.count collect #{}
 
 			-- Collect face lists arranged by submaterial ID
-			for f = 1 to target.numFaces do subfaces[getMatID target f][f] = true
+			for f = 1 to target.numFaces where classOf subfaces[index = getMatID target f] == BitArray do subfaces[index][f] = true
 
 			-- Filter through submaterials ignoring empty and invalid types
 			for i = 1 to target.material.materialList.count where not subfaces[i].isEmpty do (

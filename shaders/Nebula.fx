@@ -7,7 +7,7 @@ int TEXCOORD1 : TEXCOORD < int Texcoord = 1; int MapChannel = -2; >; // Vertex a
 int TEXCOORD2 : TEXCOORD < int Texcoord = 2; int MapChannel = 1; >;  // UV0
 #endif
 
-float4 DiffuseColor  < string UIName = "Diffuse Color"; string UIWidget = "Color"; > = {1.0f, 1.0f, 1.0f, 1.0f};
+float4 DiffuseColor  < string UIName = "Diffuse Color"; string UIWidget = "Color"; > = {.5f, .5f, .5f, 1.0f};
 
 bool DiffuseTextureEnabled < string UIName = "Enable Diffuse Texture"; > = true;
 bool DiffuseTextureFlip < string UIName = "Flip Diffuse Texture"; > = false;

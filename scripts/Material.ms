@@ -174,15 +174,18 @@ fn SetPhysicalMaterial target diffuseColor: diffuseTexture: emissionTexture: tex
 
 -- DcDt, DcDtTwo, DcDtEc, DcDtEcTwo, DcDtOcOt, DcDtOcOtTwo, DcDtEcOcOt, DcDtEcOcOtTwo, EcEt, DcDtEt
 struct SinglePassMaterial (
-	name,            -- Material name
-	technique,       -- Display technique
-	diffuseColor,    -- Diffuse color and opacity (color)
-	emissionColor,   -- Emission color (color)
-	diffuseTexture,  -- Diffuse texture (FLMaterialMap)
-	emissionTexture, -- Emission texture (FLMaterialMap)
+	name,             -- Material name
+	noExport = false, -- Don't export
+	technique,        -- Display technique
+	diffuseColor,     -- Diffuse color and opacity (color)
+	emissionColor,    -- Emission color (color)
+	diffuseTexture,   -- Diffuse texture (FLMaterialMap)
+	emissionTexture,  -- Emission texture (FLMaterialMap)
 
 	fn Parse target textureLib: = (
 		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+
+		noExport = getProperty target #NoExport
 
 		GetShaderColor target #DiffuseColor  &diffuseColor
 		GetShaderColor target #EmissionColor &emissionColor
@@ -235,6 +238,7 @@ struct SinglePassMaterial (
 -- BtDetailMapMaterial, BtDetailMapTwoMaterial
 struct DetailMaterial (
 	name,
+	noExport = false,
 	technique,
 	diffuseColor,
 	diffuseTexture,
@@ -242,6 +246,8 @@ struct DetailMaterial (
 
 	fn Parse target textureLib: = (
 		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+
+		noExport = getProperty target #NoExport
 
 		GetShaderColor target #DiffuseColor &diffuseColor
 
@@ -287,12 +293,15 @@ struct DetailMaterial (
 -- Nebula, NebulaTwo
 struct NebulaMaterial (
 	name,
+	noExport = false,
 	technique,
 	diffuseColor,
 	diffuseTexture,
 
 	fn Parse target textureLib: = (
 		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+
+		noExport = getProperty target #NoExport
 
 		GetShaderColor target #DiffuseColor &diffuseColor
 		GetTextureMap target #DiffuseTexture textureLib &diffuseTexture
@@ -332,11 +341,14 @@ struct NebulaMaterial (
 -- GlassMaterial, GFGlassMaterial, HighGlassMaterial
 struct GlassMaterial (
 	name,
+	noExport = false,
 	technique,
 	diffuseColor,
 
 	fn Parse target textureLib: = (
 		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+
+		noExport = getProperty target #NoExport
 
 		GetShaderColor target #DiffuseColor &diffuseColor
 		OK
@@ -372,6 +384,7 @@ struct GlassMaterial (
 -- PlanetWaterMaterial
 struct PlanetWaterMaterial (
 	name,
+	noExport = false,
 	technique = 0,
 	diffuseColor,
 	diffuseTexture
@@ -380,6 +393,7 @@ struct PlanetWaterMaterial (
 -- NomadMaterial, NomadMaterialNoBendy
 struct NomadMaterial (
 	name,
+	noExport = false,
 	technique,
 	diffuseColor,
 	diffuseTexture,
@@ -387,6 +401,8 @@ struct NomadMaterial (
 
 	fn Parse target textureLib: = (
 		if classOf target != DxMaterial then throw "Invalid DxMaterial object."
+
+		noExport = getProperty target #NoExport
 
 		GetShaderColor target #DiffuseColor &diffuseColor
 
@@ -607,6 +623,9 @@ struct FLMaterialLibrary (
 		local item
 		local type
 		local items = if classOf filter == Array then for filename in filter where (item = GetMaterial filename) != undefined collect item else materials
+
+		-- Filter out materials not for exporting.
+		items = for item in items where not item.noExport collect item
 
 		if items.count > 0 and writer.OpenFolder "Material library" then (
 			for item in items where writer.OpenFolder item.name do (

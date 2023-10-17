@@ -498,6 +498,8 @@ struct SurfacePart (
 
 		local iteration = 0
 
+		MAXLancer.WriteLog ("Node count: " + formattedPrint nodes.count format:"u")
+
 		-- Condense node list by grouping nodes into pairs until only one node remain which becomes root
 		while nodes.count > 1 do (
 
@@ -581,13 +583,22 @@ struct SurfacePart (
 			scaler = minRadius / maxRadius
 			drag   = [target.dragX, target.dragY, target.dragZ]
 
-			if target.autoDrag then drag = [radius, radius, radius] * rotateYPRMatrix (random -5.0 5) (random -5.0 5) (random -5.0 5)
+			if target.autoDrag then (
+				local d = 0.2 * radius * radius
+				local v = d * 0.001
+
+				drag = [d + random -v v, d + random -v v, d + random -v v]
+			)
 
 			drag.x = abs drag.x
 			drag.y = abs drag.y
 			drag.z = abs drag.z
 
 			this.center = center
+
+			MAXLancer.WriteLog ("Radius: " + formattedPrint radius format:".4f")
+			MAXLancer.WriteLog ("Drag: " + formattedPrint drag format:".8f")
+			MAXLancer.WriteLog ("Center: " + formattedPrint center format:".4f")
 		)
 
 		OK
@@ -597,7 +608,9 @@ struct SurfacePart (
 	fn Build target compound centers:true extents:false nodes:false wraps:false hulls:true epsilon:0.5 progress: = (
 		if classOf target != RigidPartHelper then throw "Invalid Rigid part helper object."
 
-		MAXLancer.WriteLog ("Surface Linear Drag: " + formattedPrint drag format:".8f")
+		MAXLancer.WriteLog ("Radius: " + formattedPrint radius format:".4f")
+		MAXLancer.WriteLog ("Drag: " + formattedPrint drag format:".8f")
+		MAXLancer.WriteLog ("Center: " + formattedPrint center format:".4f")
 
 		target.dragX    = drag.x
 		target.dragY    = drag.y

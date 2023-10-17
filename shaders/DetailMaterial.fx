@@ -60,13 +60,8 @@ Pixel Detail_VS(Vertex Input) {
 float4 Detail_PS(Pixel Input) : SV_TARGET {
 	float3 Color       = DiffuseTextureEnabled ? DiffuseTexture.Sample(DefaultSampler, Input.UV0).rgb : float3(1.0f, 1.0f, 1.0f);
 	float3 DetailColor = DetailTextureEnabled ? DetailTexture.Sample(DefaultSampler, Input.UV1).rgb : float3(0.5f, 0.5f, 0.5f);
-	float3 ResultColor = {0.0f, 0.0f, 0.0f};
 
-	ResultColor.r = Color.r < 0.5f ? (2.0f * Color.r * DetailColor.r) : (1.0f - 2.0f * (1.0f - Color.r) * (1.0f - DetailColor.r));
-	ResultColor.g = Color.g < 0.5f ? (2.0f * Color.g * DetailColor.g) : (1.0f - 2.0f * (1.0f - Color.g) * (1.0f - DetailColor.g));
-	ResultColor.b = Color.b < 0.5f ? (2.0f * Color.b * DetailColor.b) : (1.0f - 2.0f * (1.0f - Color.b) * (1.0f - DetailColor.b));
-
-	return float4(Input.Color.rgb * ResultColor.rgb, 1.0f);
+	return float4(Input.Color.rgb * Color.rgb * DetailColor.rgb * 2.0f, 1.0f);
 }
 
 technique11 BtDetailMapMaterial {
