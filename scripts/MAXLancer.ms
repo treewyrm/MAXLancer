@@ -184,7 +184,7 @@ global MAXLancer = (
 	)
 
 	struct MAXLancerTools (
-		version   = 0.98,
+		version   = 0.99,
 		debug     = true,
 		config    = INIConfig filename:(pathConfig.appendPath (GetDir #plugcfg) ("MAXLancer.ini")),
 		verbosity = 0,

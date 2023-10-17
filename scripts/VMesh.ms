@@ -463,7 +463,7 @@ struct VMeshData (
 
 						-- Vertex position (relative to target.parent)
 						vertexPosition = meshOp.getVert targetSnap faceVertices[i]
-						vertexHash = MAXLancer.Hash64 (RoundPoint3 vertexPosition hashDecimal)
+						vertexHash = MAXLancer.Hash64 vertexPosition -- (RoundPoint3 vertexPosition hashDecimal)
 
 						-- Update VMeshRef bounding box
 						meshRef.minimum.x = amin meshRef.minimum.x vertexPosition.x
@@ -480,7 +480,7 @@ struct VMeshData (
 						-- Vertex normal (relative to target.parent)
 						if vertexFormat.normals then (
 							vertexNormal = normalsMod.GetNormal (normalsMod.GetNormalID f i)
-							vertexHash = MAXLancer.Hash64 (RoundPoint3 vertexNormal hashDecimal) crc:vertexHash
+							vertexHash = MAXLancer.Hash64 vertexNormal crc:vertexHash --(RoundPoint3 vertexNormal hashDecimal) crc:vertexHash
 						)
 
 						-- Write edge visibility into face flag as first three bits
@@ -497,11 +497,11 @@ struct VMeshData (
 						-- Vertex texture maps
 						for m = 1 to faceMaps.count do (
 							vertexMaps[m] = if hasVertexMaps[m] then meshOp.getMapVert targetSnap m faceMaps[m][i] else [0, 0, 0]
-							vertexHash    = MAXLancer.Hash64 (RoundPoint3 vertexMaps[m] hashDecimal) crc:vertexHash
+							vertexHash    = MAXLancer.Hash64 vertexMaps[m] crc:vertexHash -- (RoundPoint3 vertexMaps[m] hashDecimal) crc:vertexHash
 						)
 
 						vertexIndex = findItem groupHashes vertexHash
-						
+
 						-- When no match was found add vertex attribute to buffer
 						if vertexIndex == 0 then (
 							if vertexCount >= 0xFFFF then throw "Too many VMeshData vertices"
