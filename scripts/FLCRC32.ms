@@ -57,21 +57,22 @@ struct FLCRC32 (
 		)
 	),
 
+	fn HashInteger64 i crc = (
+		i = i as Integer64
+
+		for offset = 0 to -56 by -8 do
+			crc = bit.xor (bit.shift crc -8) hashes[1 + bit.xor (bit.and crc 0xFF) (bit.and (bit.shift i offset) 0xFF)]
+
+		bit.not crc -- Return Integer64
+	),
+
 	fn Hash64 input crc:-1L caseSensitive:false force:false = (
-
-		fn HashInteger64 i crc = (
-			for b = 0 to -56 by -8 do
-				crc = bit.xor (bit.shift crc -8) hashes[1 + bit.xor (bit.and crc 0xFF) (bit.and (bit.shift i -b) 0xFF)]
-
-			bit.not crc -- Return Integer64
-		)
-
 		case classOf input of (
-			Float:  HashInteger64 (bit.floatAsInt input as Integer64) crc
-			Double: HashInteger64 (bit.floatAsInt input) crc
+			Float:  HashInteger64 (bit.floatAsInt input) crc
+			Double: HashInteger64 (bit.doubleAsInt64 input) crc
 			Color:  HashInteger64 (PackColor input) crc
-			Point2: bit.xor (HashInteger64 (bit.floatAsInt input.x as Integer64) crc) (HashInteger64 (bit.floatAsInt input.y as Integer64) crc)
-			Point3: bit.xor (HashInteger64 (bit.floatAsInt input.z as Integer64) crc) (bit.xor (HashInteger64 (bit.floatAsInt input.x as Integer64) crc) (HashInteger64 (bit.intAsFloat input.y as Integer64) crc)
+			Point2: bit.xor (HashInteger64 (bit.floatAsInt input.x) crc) (HashInteger64 (bit.floatAsInt input.y) crc)
+			Point3: bit.xor (HashInteger64 (bit.floatAsInt input.z) crc) (bit.xor (HashInteger64 (bit.floatAsInt input.x) crc) (HashInteger64 (bit.intAsFloat input.y) crc))
 		)
 	),
 

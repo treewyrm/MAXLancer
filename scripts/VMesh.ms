@@ -493,7 +493,7 @@ struct VMeshData (
 							vertexColor  = color diffuseColor.x diffuseColor.y diffuseColor.z ((diffuseAlpha.x + diffuseAlpha.y + diffuseAlpha.z) / 3)
 							vertexHash   = MAXLancer.Hash64 vertexColor crc:vertexHash
 						)
-						
+
 						-- Vertex texture maps
 						for m = 1 to faceMaps.count do (
 							vertexMaps[m] = if hasVertexMaps[m] then meshOp.getMapVert targetSnap m faceMaps[m][i] else [0, 0, 0]
@@ -501,10 +501,7 @@ struct VMeshData (
 						)
 
 						vertexIndex = findItem groupHashes vertexHash
-
-						-- Safety check in case of hash collision
-						if vertexIndex > 0 and (not close_enough positions[vertexIndex].x vertexPosition.x 10 or not close_enough positions[vertexIndex].y vertexPosition.y 10 or not close_enough positions[vertexIndex].z vertexPosition.z 10) then vertexIndex = 0
-
+						
 						-- When no match was found add vertex attribute to buffer
 						if vertexIndex == 0 then (
 							if vertexCount >= 0xFFFF then throw "Too many VMeshData vertices"
@@ -523,6 +520,7 @@ struct VMeshData (
 							vertexIndex -= meshRef.vertexStart + meshGroup.vertexStart + 1
 
 							append groupHashes vertexHash
+
 						) else vertexIndex -= 1 -- Remove this in case I would need to revert back to groupPositions/groupIndices
 
 						-- Push vertex data into VMeshData and get associated vertexIndex within VMeshGroup (!)
