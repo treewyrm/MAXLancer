@@ -89,6 +89,24 @@ struct RigidPart (
 	hardpoints = #(), -- Array of HardpointFixed/HardpointRevolute/HardpointPrismatic
 	wireframe,        -- HUD wireframe (VWireData)
 	camera,           -- Cockpit camera
+	
+	fn AddHardpoint name = (
+		local hardpoint
+		
+		for item in hardpoints while hardpoint == undefined where item.name == name do hardpoint = item
+			
+		if hardpoint == undefined then (
+			hardpoint = HardpointFixed name:name
+			append hardpoints hardpoint
+		)
+		
+		hardpoint -- Return hardpoint
+	),
+	
+	fn RemoveHardpoint name = (
+		for i = 1 to hardpoints.count where hardpoints[i].name == name do deleteItem hardpoints i
+		OK
+	),
 
 	fn GetFilenameExtension = if classOf camera == CameraPart then ".cam" else ".3db",
 
