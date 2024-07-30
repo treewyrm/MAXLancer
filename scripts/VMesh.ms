@@ -477,9 +477,11 @@ struct VMeshData (
 						-- Update VMeshRef bounding sphere
 						meshRef.radius = amax meshRef.radius (distance meshRef.center vertexPosition)
 
-						-- Vertex normal (relative to target.parent)
+						-- Vertex normal (local, adjust rotation)
 						if vertexFormat.normals then (
 							vertexNormal = normalsMod.GetNormal (normalsMod.GetNormalID f i)
+							vertexNormal *= inverse targetSnap.rotation
+
 							vertexHash = MAXLancer.Hash64 vertexNormal crc:vertexHash --(RoundPoint3 vertexNormal hashDecimal) crc:vertexHash
 						)
 
