@@ -18,7 +18,7 @@ fn FormatID id = if classOf id == integer then "0x" + formattedPrint id format:"
 fn UnpackColor i = Color (bit.and (bit.shift i -16) 0xFF) (bit.and (bit.shift i -8) 0xFF) (bit.and i 0xFF) (bit.and (bit.shift i -24) 0xFF)
 
 -- Pack Color into integer
-fn PackColor c = c.b + (bit.shift c.g 8) + (bit.shift c.r 16) + (bit.shift c.a 24)
+fn PackColor c = (bit.shift c.b 0) + (bit.shift c.g 8) + (bit.shift c.r 16) + (bit.shift c.a 24)
 
 -- Rebuilds W component of quaternion given only XYZ
 fn RebuidQuat v = quat v.x v.y v.z (sqrt (1.0 - v.x * v.x - v.y * v.y - v.z * v.z))
@@ -504,8 +504,6 @@ fn GetMeshMaterials target &materials &faces = (
 		Editable_Poly: polyop.getFaceMatID
 	)
 
-	local index = 0
-
 	case classOf target.material of (
 		MultiMaterial: (
 
@@ -513,7 +511,7 @@ fn GetMeshMaterials target &materials &faces = (
 			local subfaces = for i = 1 to target.material.materialIDList.count collect #{}
 
 			-- Collect face lists arranged by submaterial ID
-			for f = 1 to target.numFaces where classOf subfaces[index = getMatID target f] == BitArray do subfaces[index][f] = true
+			for f = 1 to target.numFaces do subfaces[getMatID target f][f] = true
 
 			-- Filter through submaterials ignoring empty and invalid types
 			for i = 1 to target.material.materialList.count where not subfaces[i].isEmpty do (
