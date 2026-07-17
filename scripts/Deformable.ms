@@ -554,7 +554,7 @@ struct DeformableCompound (
 		result
 	),
 
-	fn BuildSkeleton parts binds size:0.05 = (
+	fn BuildSkeletonBones parts binds size:0.05 = (
 		if classOf parts != Array then throw "Invalid bones array type."
 		if classOf binds != Array then throw "Invalid binding transformations array type."
 
@@ -589,8 +589,6 @@ struct DeformableCompound (
 
 			if parts[parentIndex] == undefined then throw ("Invalid parent bone index in " + constraint.child.name)
 			if parts[childIndex] != undefined then throw ("Duplicate bone index in " + constraint.child.name)
-
-
 
 			-- Create dummy bone
 			-- MAX bones by default use X axis for length
@@ -629,7 +627,7 @@ struct DeformableCompound (
 		return result
 	),
 
-	fn BuildSkeletonOld parts binds size:0.0125 = (
+	fn BuildSkeletonPoints parts binds size:0.0125 = (
 		if classOf parts != Array then throw "Invalid bones array type."
 		if classOf binds != Array then throw "Invalid binding transformations array type."
 
@@ -667,16 +665,7 @@ struct DeformableCompound (
 			MAXLancer.WriteLog ("Building bone: " + constraint.parent.name + " -> " + constraint.child.name + " (" + formattedPrint constraint.child.index format:"u" + ")")
 
 			parts[childIndex] = child = constraint.child.Build size:size
-			-- parts[childIndex] = child = BoneSys.createBone [0, 0, 0] [1, 0, 0] z_axis
 			binds[childIndex] = constraint.child.boneToRoot
-
-			/*
-				child.name = constraint.child.name
-				child.transform = constraint.child.boneToRoot
-				child.width = 0.025
-				child.height = 0.025
-				child.taper = 100
-			*/
 
 			child.parent = parent
 
@@ -693,7 +682,7 @@ struct DeformableCompound (
 		local parts = #()
 		local binds = #()
 
-		local result = BuildSkeleton parts binds
+		local result = BuildSkeletonPoints parts binds
 
 		-- Generate placeholders 
 		for i = 1 to GetLastBoneIndex() + 1 where parts[i] == undefined do (
@@ -724,7 +713,7 @@ struct DeformableCompound (
 	fn BuildChild parent child attachmentName connectorName: materialLib: textureLib: progress: = (
 		local parts  = #()
 		local binds  = #()
-		local result = child.BuildSkeleton parts binds
+		local result = child.BuildSkeletonPoints parts binds
 
 		local source = FindHardpoint result attachmentName
 		if source == undefined then throw ("Child model is missing source hardpoint " + attachmentName)
@@ -758,7 +747,7 @@ struct DeformableCompound (
 	fn BuildCostume head leftHand rightHand materialLib: textureLib: progress: = (
 		local parts  = #()
 		local binds  = #()
-		local result = BuildSkeleton parts binds
+		local result = BuildSkeletonPoints parts binds
 
 		BuildMeshes parts binds materialLib:materialLib textureLib:textureLib progress:progress
 		

@@ -46,7 +46,7 @@ plugin Helper SurfaceNodeHelper classID:#(0x4C58414D, 0x65646F6E) name:"Node" ca
 )
 
 struct SurfacePoint (
-	hullID   = 0,
+	hullID   = 0,         -- Matches IVP_Compact_Poly_Point's hesse_val slot repurposed as client_data (pointer-sized tag on disk, hash instead of runtime pointer)
 	position = [0, 0, 0],
 	
 	-- Read SurfacePoint
@@ -65,18 +65,18 @@ struct SurfacePoint (
 )
 
 struct SurfaceFace (
-	flag     = 0,         -- 0x80 for wrap hull, 0x0 for normal hull
-	opposite = 0,         -- Opposite face index
-	points   = [0, 0, 0], -- Index in points array of SurfacePart 
-	shared   = [0, 0, 0], -- Index of shared edge, every edge (A->B, B->C, C->A) has shared edge where order of points is mirrored (B->A, C->B, A->C)
-	flags    = [0, 0, 0]  -- 1 for wrap hull, 0 for normal hull
+	flag     = 0,         -- Bits 0-6 match IVP's material_index (always written 0, never round-tripped from mesh - IVP's own reference builder hardcodes it too); bit 0x80 is is_virtual (1 for wrap hull, 0 for normal hull)
+	opposite = 0,         -- Opposite face index - IVP's pierce_index; found by raycasting inward from face normal, same method/fallback as IVP's own ledge builder
+	points   = [0, 0, 0], -- Index in points array of SurfacePart
+	shared   = [0, 0, 0], -- Index of shared edge, every edge (A->B, B->C, C->A) has shared edge where order of points is mirrored (B->A, C->B, A->C); matches IVP_Compact_Edge's opposite_index
+	flags    = [0, 0, 0]  -- is_virtual per edge (1 for wrap hull, 0 for normal hull) - IVP gates collision response on !is_virtual
 )
 
 struct SurfaceHull (
-	hullID  = 0,
-	type    = 4,   -- 4 is normal hull, 5 is wrap hull (non-colliding)
+	hullID  = 0,   -- Name hash (type 4) or offset to node using it (type 5); matches IVP_Compact_Ledge's ledgetree_node_offset/client_data union - IVP itself designed this slot to be dual-purpose
+	type    = 4,   -- 4 is normal hull, 5 is wrap hull (non-colliding); replaces IVP's has_chilren_flag/is_compact_flag/dummy nibble outright - .sur hulls are always terminal/compact, never chained ledges
 	faces   = #(), -- Array of SurfaceFace
-	unknown = 0,
+	unknown = 0,   -- Matches IVP_Compact_Ledge's for_future_use - confirmed genuinely reserved in IVP's own source, not just presumed padding
 
 	-- Get unique triagnle indices
 	fn GetPointIndices = (
@@ -89,11 +89,11 @@ struct SurfaceHull (
 	fn ReadStream stream = (
 		hullID = ReadLong stream #unsigned -- Either name hash (type 4) or offset to node using it (node 5)
 
-		local header = ReadLong stream #unsigned -- Unique refs count (3 bytes), mesh type (1 byte)
-		
+		local header = ReadLong stream #unsigned -- Unique refs count(?) (3 bytes), mesh type (1 byte) - high 24 bits positionally match IVP's size_div_16 (byte_size/16) but WriteStream's formula doesn't compute that; meaning is Freelancer-specific and unconfirmed
+
 		type        = bit.and header 0xFF -- Hull type
 		faces.count = ReadShort stream #unsigned
-		unknown     = ReadShort stream #unsigned -- Unused/padding?
+		unknown     = ReadShort stream #unsigned -- Reserved, matches IVP's for_future_use
 
 		if type == 5 then hullID = 0 -- Type 5 keeps offset to node there instead
 
@@ -130,7 +130,7 @@ struct SurfaceHull (
 
 	-- Write SurfaceHull
 	fn WriteStream stream = (
-		local header = bit.or (bit.shift ((12 + faces.count * 6) / 4) 8) (bit.and type 0xFF)
+		local header = bit.or (bit.shift ((12 + faces.count * 6) / 4) 8) (bit.and type 0xFF) -- High 24 bits don't match IVP's size_div_16 (byte_size/16); this computes something structurally different, so it's a genuine Freelancer-specific repurposing of the slot, not preserved IVP semantics
 
 		WriteLong stream hullID #unsigned
 		WriteLong stream header #unsigned
@@ -211,10 +211,10 @@ struct SurfaceHull (
 )
 
 struct SurfaceNode (
-	center  = [0, 0, 0], -- Boundary center
-	radius  = 0.0,       -- Boundary radius
-	scaler  = [0, 0, 0], -- Boundary radius axis scalers
-	unknown = 0,         -- Unknown byte (padding?)
+	center  = [0, 0, 0], -- Boundary center; matches IVP_Compact_Ledgetree_Node's center
+	radius  = 0.0,       -- Boundary radius; matches IVP_Compact_Ledgetree_Node's radius
+	scaler  = [0, 0, 0], -- Boundary radius axis scalers; matches IVP_Compact_Ledgetree_Node's box_sizes[3]
+	unknown = 0,         -- Matches IVP_Compact_Ledgetree_Node's free_0 byte
 	hull,                -- SurfaceHull
 	left,                -- Left child SurfaceNode
 	right,               -- Right child SurfaceNode
@@ -310,7 +310,7 @@ struct SurfaceNode (
 		scaler.x = ReadByte stream #unsigned
 		scaler.z = ReadByte stream #unsigned
 		scaler.y = ReadByte stream #unsigned
-		scaler /= 0xFA
+		scaler /= 0xFA -- 0xFA (250) is IVP's own IVP_COMPACT_BOUNDINGBOX_STEP_SIZE (1/250) quantization constant, not independently derived
 
 		unknown = ReadByte stream
 		OK
@@ -340,8 +340,8 @@ struct SurfacePart (
 	center     = [0, 0, 0], -- Center of mass, used for aiming reticle
 	radius     = 0.0,       -- Radius of sphere encompassing all hulls
 	scaler     = 1.0,       -- Down-scale factor of sphere radius encompassing only non-hardpoint hulls
-	drag       = [0, 0, 0], -- Linear drag
-	unknown    = [0, 0, 0], -- Unused vector
+	drag       = [0, 0, 0], -- Linear drag; occupies IVP_Compact_Surface's rotation_inertia slot exactly (position and struct field name) - genuinely unresolved whether Freelancer repurposed it for drag or this is really a moment-of-inertia estimate, see docs/codebase/collision-surfaces-ivp-comparison.md
+	unknown    = [0, 0, 0], -- Confirmed pure alignment padding, matches IVP_Compact_Surface's dummy[3] (16-byte align)
 	hardpoints = #(),       -- Array of Integer
 	points     = #(),       -- Array of SurfacePoint
 	root,                   -- Root SurfaceNode
@@ -583,7 +583,7 @@ struct SurfacePart (
 			scaler = minRadius / maxRadius
 			drag   = [target.dragX, target.dragY, target.dragZ]
 
-			if target.autoDrag then (
+			if target.autoDrag then ( -- Same k*radius^2 uniform-axis shape as IVP's own rotation_inertia fallback estimator (localCalcMassCenterAndRotInertia uses k=0.5), just a different constant
 				local d = 0.2 * radius * radius
 				local v = d * 0.001
 
@@ -750,19 +750,20 @@ struct SurfacePart (
 		local startOffset = ftell stream
 		local endOffset   = startOffset + size
 
-		ReadPosition stream center  -- Bounding box center
-		ReadPoint3   stream drag    -- Linear drag vector
+		-- This 52-byte header (center, drag, radius, packed header, nodesStartOffset, unknown) is a field-for-field, byte-for-byte match with IVP_Compact_Surface
+		ReadPosition stream center  -- Bounding box center; matches IVP_Compact_Surface's mass_center
+		ReadPoint3   stream drag    -- Linear drag vector; matches IVP_Compact_Surface's rotation_inertia slot, see SurfacePart.drag
 
-		radius = ReadFloat stream -- Bounding box radius
+		radius = ReadFloat stream -- Bounding box radius; matches IVP_Compact_Surface's upper_limit_radius
 
-		local header = ReadLong stream #unsigned -- Scale (1 byte); Nodes end offset (3 bytes)
+		local header = ReadLong stream #unsigned -- Scale (1 byte); Nodes end offset (3 bytes); matches max_factor_surface_deviation:8 + byte_size:24
 		scaler = ((bit.and header 0xFF) as Float) / 0xFA -- Bounding box radius scaler for sphere that only contains to non-hardpoint hulls
-		
+
 		local nodesEndOffset    = startOffset + (bit.shift header -8)
-		local nodesStartOffset  = startOffset + (ReadLong stream #unsigned)
+		local nodesStartOffset  = startOffset + (ReadLong stream #unsigned) -- Matches IVP_Compact_Surface's offset_ledgetree_root
 		local pointsStartOffset = 0 -- Offset to hull points
 
-		ReadPosition stream unknown -- Unknown/unused vector
+		ReadPosition stream unknown -- Confirmed pure alignment padding, matches IVP_Compact_Surface's dummy[3]
 
 		local nodeOffset  = 0 -- Currently read node offset
 		local rightOffset = 0 -- Offset to right child

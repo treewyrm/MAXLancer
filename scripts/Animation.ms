@@ -474,10 +474,8 @@ struct AnimationLibrary (
 		local result
 		if IsLayerController controller then for i = 2 to controller.getCount() while result == undefined where controller.getLayerName i == name do result = controller[i].controller
 		
-		if result != undefined then (
-			setBeforeORT result before
-			setAfterORT result after
-		)
+		-- setBeforeORT result before
+		-- setAfterORT result after
 
 		result -- Return controller
 	),

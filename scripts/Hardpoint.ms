@@ -23,7 +23,7 @@ plugin Helper HardpointHelper classID:#(0x4C58414D, 0x64726168) name:"Hardpoint"
 			if hullShape == 3 then move hullMesh [0, 0, hullSize * -0.5]
 		) else if hullShape == 4 then setMesh hullMesh (createInstance sphere radius:hullSize segs:8 hemisphere:0.5 chop:1).mesh
 		else if hullShape == 5 then setMesh hullMesh (createInstance cylinder radius:(hullSize * 0.5) height:(hullSize * 0.5) sides:6 heightsegs:1 capsegs:1 slice:false).mesh
-		else if hullShape == 6 then setMesh hullMesh (createInstance sphere radius:hullSize segs:8 hemisphere:0.0 chop:0).mesh
+		else if hullShape == 6 then setMesh hullMesh (createInstance geosphere radius:hullSize segs:3 baseType:1 hemisphere:false).mesh
 		
 		update hullMesh
 		hullUpdated = true
