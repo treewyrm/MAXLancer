@@ -745,7 +745,7 @@ struct VWireData (
 		local vertices = makeUniqueArray indices
 
 		vertexCount = vertices.count
-		vertexRange = amax vertices - amin vertices
+		vertexRange = amax vertices - amin vertices + 1
 
 		WriteLong  stream size          #unsigned
 		WriteLong  stream meshID        #unsigned
